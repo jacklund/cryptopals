@@ -17,12 +17,12 @@ lazy_static! {
             ('7', 7),
             ('8', 8),
             ('9', 9),
-            ('A', 10),
-            ('B', 11),
-            ('C', 12),
-            ('D', 13),
-            ('E', 14),
-            ('F', 15),
+            ('a', 10),
+            ('b', 11),
+            ('c', 12),
+            ('d', 13),
+            ('e', 14),
+            ('f', 15),
         ])
     };
     static ref NUMBERS_TO_HEX: HashMap<u8, char> = {
@@ -37,12 +37,12 @@ lazy_static! {
             (7, '7'),
             (8, '8'),
             (9, '9'),
-            (10, 'A'),
-            (11, 'B'),
-            (12, 'C'),
-            (13, 'D'),
-            (14, 'E'),
-            (15, 'F'),
+            (10, 'a'),
+            (11, 'b'),
+            (12, 'c'),
+            (13, 'd'),
+            (14, 'e'),
+            (15, 'f'),
         ])
     };
     static ref NUMBERS_TO_BASE64: HashMap<u8, char> = {
@@ -115,18 +115,20 @@ lazy_static! {
     };
 }
 
-pub fn hexify(mut value: u64) -> String {
-    let mut chars = vec![];
-    while value > 0 {
-        chars.push(*NUMBERS_TO_HEX.get(&((value & 0x0F) as u8)).unwrap());
-        value >>= 4;
-    }
-
-    chars.iter().rev().collect()
+pub fn hexify(value: &[u8]) -> String {
+    value
+        .iter()
+        .flat_map(|c| {
+            vec![
+                *NUMBERS_TO_HEX.get(&(c >> 4)).unwrap(),
+                *NUMBERS_TO_HEX.get(&(c & 0x0F)).unwrap(),
+            ]
+        })
+        .collect()
 }
 
 pub fn unhexify(hex: &str) -> Result<Vec<u8>> {
-    hex.to_uppercase()
+    hex.to_lowercase()
         .chars()
         .collect::<Vec<char>>()
         .chunks(2)
@@ -183,6 +185,14 @@ pub fn to_base64(value: &[u8]) -> String {
         .collect()
 }
 
+pub fn xor(a: &[u8], b: &[u8]) -> Result<Vec<u8>> {
+    if a.len() != b.len() {
+        Err(anyhow!("Data should be of the same length"))
+    } else {
+        Ok(a.iter().zip(b).map(|(a, b)| a ^ b).collect())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,9 +200,9 @@ mod tests {
     #[test]
     fn test_hex() {
         let value: Vec<u8> = vec![163];
-        assert_eq!(unhexify("A3").unwrap(), value);
-        assert!(unhexify("X3").is_err());
-        assert!(matches!(hexify(163).as_str(), "A3"));
+        assert_eq!(unhexify("a3").unwrap(), value);
+        assert!(unhexify("x3").is_err());
+        assert!(matches!(hexify(&[0xa3u8]).as_str(), "a3"));
     }
 
     #[test]
