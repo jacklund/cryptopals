@@ -114,15 +114,15 @@ lazy_static! {
         ])
     };
 
-    static ref CHAR_LIST_BY_FREQUENCY: Vec<char> = {
+    static ref CHAR_LIST_BY_FREQUENCY: Vec<u8> = {
         " etaoinshrdlu"
-            .chars().flat_map(|c| {
-                if c == ' ' {
-                    vec![c]
+            .bytes().flat_map(|b| {
+                if b as char == ' ' {
+                    vec![b]
                 } else {
                     vec![
-                        c,
-                        c.to_uppercase().collect::<Vec<char>>()[0]
+                        b,
+                        (b as char).to_uppercase().collect::<Vec<char>>()[0] as u8
                     ]
                 }
             }).collect()
@@ -244,23 +244,23 @@ pub fn get_char_score(c: char) -> usize {
     }
 }
 
-pub fn create_histogram(string: &str) -> Vec<(char, usize)> {
+pub fn create_histogram(string: &[u8]) -> Vec<(u8, usize)> {
     let mut list = string
-        .chars()
-        .fold(HashMap::<char, usize>::new(), |mut hashmap, c| {
-            match hashmap.get(&c) {
+        .iter()
+        .fold(HashMap::<u8, usize>::new(), |mut hashmap, b| {
+            match hashmap.get(&b) {
                 Some(count) => {
                     let new = count + 1;
-                    hashmap.insert(c, new);
+                    hashmap.insert(*b, new);
                 }
                 None => {
-                    hashmap.insert(c, 1);
+                    hashmap.insert(*b, 1);
                 }
             };
             hashmap
         })
         .into_iter()
-        .collect::<Vec<(char, usize)>>();
+        .collect::<Vec<(u8, usize)>>();
     list.sort_by(|(_, count1), (_, count2)| count2.cmp(count1));
 
     list
@@ -271,6 +271,31 @@ pub fn try_xor_key(key: &[u8], ciphertext: &[u8]) -> (usize, String) {
     let plaintext = std::str::from_utf8(&xored).unwrap().to_string();
     let score = get_score(&plaintext);
     (score, plaintext)
+}
+
+pub fn find_single_byte_key(ciphertext: &[u8]) -> (u8, usize, String) {
+    let histogram = create_histogram(ciphertext);
+    let ciphertext_val = histogram[0].0;
+
+    // Since p ^ k = c, where p is the plaintext char, k is the key char, and c is the
+    // ciphertext char, we can use k = c ^ p. Here, we take the most frequent char in the
+    // ciphertext, and xor it with each of the most frequent chars in the English language,
+    // and try that as a key. The key that gives us the highest score wins.
+    CHAR_LIST_BY_FREQUENCY.iter().fold(
+        (0u8, 0usize, String::new()),
+        |(last_key, last_score, last_plaintext), b| {
+            let key = *b ^ ciphertext_val;
+            let (score, plaintext) = try_xor_key(
+                &keystream_from_byte(*b ^ ciphertext_val, ciphertext.len()),
+                ciphertext,
+            );
+            if score > last_score {
+                (key, score, plaintext)
+            } else {
+                (last_key, last_score, last_plaintext)
+            }
+        },
+    )
 }
 
 pub fn keystream_from_byte(key: u8, size: usize) -> Vec<u8> {
