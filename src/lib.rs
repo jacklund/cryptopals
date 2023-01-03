@@ -382,6 +382,17 @@ pub fn break_repeating_key_xor(ciphertext: &[u8]) -> (Vec<u8>, Vec<u8>) {
     (key, plaintext)
 }
 
+pub fn detect_aes_ecb(ciphertext: &[u8], blocksize: usize) -> bool {
+    let mut chunks = ciphertext.chunks(blocksize).collect::<Vec<&[u8]>>();
+    while let Some(chunk) = chunks.pop() {
+        if chunks.iter().any(|other| *other == chunk) {
+            return true;
+        }
+    }
+
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
