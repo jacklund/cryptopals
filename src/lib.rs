@@ -268,9 +268,10 @@ pub fn create_histogram(string: &[u8]) -> Vec<(u8, usize)> {
 
 pub fn try_xor_key(key: &[u8], ciphertext: &[u8]) -> (usize, String) {
     let xored = xor(key, ciphertext).unwrap();
-    let plaintext = std::str::from_utf8(&xored).unwrap().to_string();
-    let score = get_score(&plaintext);
-    (score, plaintext)
+    match std::str::from_utf8(&xored) {
+        Ok(string) => (get_score(string), string.to_string()),
+        Err(_) => (0, String::new()),
+    }
 }
 
 pub fn find_single_byte_key(ciphertext: &[u8]) -> (u8, usize, String) {
