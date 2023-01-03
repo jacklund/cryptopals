@@ -300,9 +300,16 @@ pub fn find_single_byte_key(ciphertext: &[u8]) -> (u8, usize, String) {
 }
 
 pub fn keystream_from_byte(key: u8, size: usize) -> Vec<u8> {
-    let mut key_stream = vec![];
-    key_stream.extend(std::iter::repeat(key).take(size));
-    key_stream
+    [key].iter().cycle().take(size).copied().collect()
+}
+
+pub fn repeating_key_xor(key: &[u8], plaintext: &[u8]) -> Vec<u8> {
+    key.iter()
+        .cycle()
+        .take(plaintext.len())
+        .zip(plaintext)
+        .map(|(k, p)| k ^ p)
+        .collect()
 }
 
 #[cfg(test)]
