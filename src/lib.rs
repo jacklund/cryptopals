@@ -113,6 +113,44 @@ lazy_static! {
             (63, '/'),
         ])
     };
+
+    static ref CHAR_LIST_BY_FREQUENCY: Vec<char> = {
+        " etaoinshrdlu"
+            .chars().flat_map(|c| {
+                if c == ' ' {
+                    vec![c]
+                } else {
+                    vec![
+                        c,
+                        c.to_uppercase().collect::<Vec<char>>()[0]
+                    ]
+                }
+            }).collect()
+    };
+
+    // Create a hashmap of char => score based on char frequency
+    static ref CHAR_SCORES: HashMap<char, usize> = {
+        HashMap::from(
+            <Vec<(char, usize)> as TryInto<[(char, usize); 25]>>::try_into(
+                " etaoinshrdlu"
+                    .chars()
+                    .flat_map(|c| {
+                        let mut score: usize = 14;
+                        score -= 1;
+                        if c == ' ' {
+                            vec![(c, score)]
+                        } else {
+                            vec![
+                                (c, score),
+                                (c.to_uppercase().collect::<Vec<char>>()[0], score),
+                            ]
+                        }
+                    })
+                    .collect::<Vec<(char, usize)>>(),
+            )
+            .unwrap(),
+        )
+    };
 }
 
 pub fn hexify(value: &[u8]) -> String {
@@ -191,6 +229,48 @@ pub fn xor(a: &[u8], b: &[u8]) -> Result<Vec<u8>> {
     } else {
         Ok(a.iter().zip(b).map(|(a, b)| a ^ b).collect())
     }
+}
+
+pub fn get_score(string: &str) -> usize {
+    string
+        .chars()
+        .fold(0usize, |acc, c| acc + get_char_score(c))
+}
+
+pub fn get_char_score(c: char) -> usize {
+    match CHAR_SCORES.get(&c) {
+        Some(score) => *score,
+        None => 0,
+    }
+}
+
+pub fn create_histogram(string: &str) -> Vec<(char, usize)> {
+    let mut list = string
+        .chars()
+        .fold(HashMap::<char, usize>::new(), |mut hashmap, c| {
+            match hashmap.get(&c) {
+                Some(count) => {
+                    let new = count + 1;
+                    hashmap.insert(c, new);
+                }
+                None => {
+                    hashmap.insert(c, 1);
+                }
+            };
+            hashmap
+        })
+        .into_iter()
+        .collect::<Vec<(char, usize)>>();
+    list.sort_by(|(_, count1), (_, count2)| count2.cmp(count1));
+
+    list
+}
+
+pub fn try_xor_key(key: &[u8], ciphertext: &[u8]) -> (usize, String) {
+    let xored = xor(key, ciphertext).unwrap();
+    let plaintext = std::str::from_utf8(&xored).unwrap().to_string();
+    let score = get_score(&plaintext);
+    (score, plaintext)
 }
 
 #[cfg(test)]
