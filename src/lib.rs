@@ -248,7 +248,7 @@ pub fn create_histogram(string: &[u8]) -> Vec<(u8, usize)> {
     let mut list = string
         .iter()
         .fold(HashMap::<u8, usize>::new(), |mut hashmap, b| {
-            match hashmap.get(&b) {
+            match hashmap.get(b) {
                 Some(count) => {
                     let new = count + 1;
                     hashmap.insert(*b, new);
