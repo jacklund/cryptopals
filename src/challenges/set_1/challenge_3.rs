@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use crate::{create_histogram, try_xor_key, unhexify, CHAR_LIST_BY_FREQUENCY};
+    use crate::{
+        create_histogram, keystream_from_byte, try_xor_key, unhexify, CHAR_LIST_BY_FREQUENCY,
+    };
 
     #[test]
     fn challenge_3() {
@@ -19,9 +21,10 @@ mod tests {
             (0u8, 0usize, String::new()),
             |(last_key, last_score, last_plaintext), c| {
                 let key = (*c as u8) ^ ciphertext_val;
-                let mut key_stream = vec![];
-                key_stream.extend(std::iter::repeat(key).take(string.len()));
-                let (score, plaintext) = try_xor_key(&key_stream, string.as_bytes());
+                let (score, plaintext) = try_xor_key(
+                    &keystream_from_byte((*c as u8) ^ ciphertext_val, string.len()),
+                    string.as_bytes(),
+                );
                 if score > last_score {
                     (key, score, plaintext)
                 } else {

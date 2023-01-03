@@ -273,6 +273,12 @@ pub fn try_xor_key(key: &[u8], ciphertext: &[u8]) -> (usize, String) {
     (score, plaintext)
 }
 
+pub fn keystream_from_byte(key: u8, size: usize) -> Vec<u8> {
+    let mut key_stream = vec![];
+    key_stream.extend(std::iter::repeat(key).take(size));
+    key_stream
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
