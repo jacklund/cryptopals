@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{to_base64, unhexify};
+    use crate::util::{to_base64, unhexify};
 
     #[test]
     fn challenge_1() {

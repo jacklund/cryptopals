@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{hexify, unhexify, xor};
+    use crate::util::{hexify, unhexify, xor};
 
     #[test]
     fn challenge_2() {

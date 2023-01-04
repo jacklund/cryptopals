@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::tests::ICE_ICE_BABY;
-    use crate::{aes_ecb_decrypt, pkcs7_unpad};
+    use crate::{aes::aes_ecb_decrypt, pkcs7_unpad};
     use base64;
     use std::fs::File;
     use std::io::{BufRead, BufReader};

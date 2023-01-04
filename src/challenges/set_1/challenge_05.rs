@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{hexify, repeating_key_xor};
+    use crate::{repeating_key_xor, util::hexify};
 
     #[test]
     fn challenge_5() {

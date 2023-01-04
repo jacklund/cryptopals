@@ -1,283 +1,26 @@
-use aes::cipher::{generic_array::GenericArray, BlockDecrypt, BlockEncrypt, KeyInit};
-use aes::Aes128;
-use anyhow::{anyhow, Result};
+use crate::util::{create_histogram, keystream_from_byte, try_xor_key};
 use lazy_static::lazy_static;
-use std::collections::HashMap;
 
+pub mod aes;
 mod challenges;
+pub mod util;
 
 lazy_static! {
-    static ref HEX_TO_NUMBERS: HashMap<char, u8> = {
-        HashMap::from([
-            ('0', 0),
-            ('1', 1),
-            ('2', 2),
-            ('3', 3),
-            ('4', 4),
-            ('5', 5),
-            ('6', 6),
-            ('7', 7),
-            ('8', 8),
-            ('9', 9),
-            ('a', 10),
-            ('b', 11),
-            ('c', 12),
-            ('d', 13),
-            ('e', 14),
-            ('f', 15),
-        ])
-    };
-    static ref NUMBERS_TO_HEX: HashMap<u8, char> = {
-        HashMap::from([
-            (0, '0'),
-            (1, '1'),
-            (2, '2'),
-            (3, '3'),
-            (4, '4'),
-            (5, '5'),
-            (6, '6'),
-            (7, '7'),
-            (8, '8'),
-            (9, '9'),
-            (10, 'a'),
-            (11, 'b'),
-            (12, 'c'),
-            (13, 'd'),
-            (14, 'e'),
-            (15, 'f'),
-        ])
-    };
-    static ref NUMBERS_TO_BASE64: HashMap<u8, char> = {
-        HashMap::from([
-            (0, 'A'),
-            (1, 'B'),
-            (2, 'C'),
-            (3, 'D'),
-            (4, 'E'),
-            (5, 'F'),
-            (6, 'G'),
-            (7, 'H'),
-            (8, 'I'),
-            (9, 'J'),
-            (10, 'K'),
-            (11, 'L'),
-            (12, 'M'),
-            (13, 'N'),
-            (14, 'O'),
-            (15, 'P'),
-            (16, 'Q'),
-            (17, 'R'),
-            (18, 'S'),
-            (19, 'T'),
-            (20, 'U'),
-            (21, 'V'),
-            (22, 'W'),
-            (23, 'X'),
-            (24, 'Y'),
-            (25, 'Z'),
-            (26, 'a'),
-            (27, 'b'),
-            (28, 'c'),
-            (29, 'd'),
-            (30, 'e'),
-            (31, 'f'),
-            (32, 'g'),
-            (33, 'h'),
-            (34, 'i'),
-            (35, 'j'),
-            (36, 'k'),
-            (37, 'l'),
-            (38, 'm'),
-            (39, 'n'),
-            (40, 'o'),
-            (41, 'p'),
-            (42, 'q'),
-            (43, 'r'),
-            (44, 's'),
-            (45, 't'),
-            (46, 'u'),
-            (47, 'v'),
-            (48, 'w'),
-            (49, 'x'),
-            (50, 'y'),
-            (51, 'z'),
-            (52, '0'),
-            (53, '1'),
-            (54, '2'),
-            (55, '3'),
-            (56, '4'),
-            (57, '5'),
-            (58, '6'),
-            (59, '7'),
-            (60, '8'),
-            (61, '9'),
-            (62, '+'),
-            (63, '/'),
-        ])
-    };
-
     static ref CHAR_LIST_BY_FREQUENCY: Vec<u8> = {
         " etaoinshrdlu"
-            .bytes().flat_map(|b| {
+            .bytes()
+            .flat_map(|b| {
                 if b as char == ' ' {
                     vec![b]
                 } else {
                     vec![
                         b,
-                        (b as char).to_uppercase().collect::<Vec<char>>()[0] as u8
+                        (b as char).to_uppercase().collect::<Vec<char>>()[0] as u8,
                     ]
                 }
-            }).collect()
+            })
+            .collect()
     };
-
-    // Create a hashmap of char => score based on char frequency
-    static ref CHAR_SCORES: HashMap<char, usize> = {
-        HashMap::from(
-            <Vec<(char, usize)> as TryInto<[(char, usize); 25]>>::try_into(
-                " etaoinshrdlu"
-                    .chars()
-                    .flat_map(|c| {
-                        let mut score: usize = 14;
-                        score -= 1;
-                        if c == ' ' {
-                            vec![(c, score)]
-                        } else {
-                            vec![
-                                (c, score),
-                                (c.to_uppercase().collect::<Vec<char>>()[0], score),
-                            ]
-                        }
-                    })
-                    .collect::<Vec<(char, usize)>>(),
-            )
-            .unwrap(),
-        )
-    };
-}
-
-pub fn hexify(value: &[u8]) -> String {
-    value
-        .iter()
-        .flat_map(|c| {
-            vec![
-                *NUMBERS_TO_HEX.get(&(c >> 4)).unwrap(),
-                *NUMBERS_TO_HEX.get(&(c & 0x0F)).unwrap(),
-            ]
-        })
-        .collect()
-}
-
-pub fn unhexify(hex: &str) -> Result<Vec<u8>> {
-    hex.to_lowercase()
-        .chars()
-        .collect::<Vec<char>>()
-        .chunks(2)
-        .map(|chunk| match HEX_TO_NUMBERS.get(&chunk[0]) {
-            Some(a) => match HEX_TO_NUMBERS.get(&chunk[1]) {
-                Some(b) => Ok((a << 4) + b),
-                None => Err(anyhow!("Bad hex value: {}", chunk[1])),
-            },
-            None => Err(anyhow!("Bad hex value: {}", chunk[0])),
-        })
-        .collect()
-}
-
-pub fn to_base64(value: &[u8]) -> String {
-    value
-        .chunks(3)
-        .flat_map(|chunk| {
-            let mut values = vec![];
-            match chunk.len() {
-                3 => {
-                    values.push(*NUMBERS_TO_BASE64.get(&(chunk[0] >> 2)).unwrap());
-                    values.push(
-                        *NUMBERS_TO_BASE64
-                            .get(&(((chunk[0] & 0x03) << 4) + (chunk[1] >> 4)))
-                            .unwrap(),
-                    );
-                    values.push(
-                        *NUMBERS_TO_BASE64
-                            .get(&(((chunk[1] & 0x0F) << 2) + (chunk[2] >> 6)))
-                            .unwrap(),
-                    );
-                    values.push(*NUMBERS_TO_BASE64.get(&(chunk[2] & 0x3F)).unwrap());
-                }
-                2 => {
-                    values.push(*NUMBERS_TO_BASE64.get(&(chunk[0] >> 2)).unwrap());
-                    values.push(
-                        *NUMBERS_TO_BASE64
-                            .get(&(((chunk[0] & 0x03) << 4) + (chunk[1] >> 4)))
-                            .unwrap(),
-                    );
-                    values.push(*NUMBERS_TO_BASE64.get(&((chunk[1] & 0x0F) << 2)).unwrap());
-                    values.push('=');
-                }
-                1 => {
-                    values.push(*NUMBERS_TO_BASE64.get(&(chunk[0] >> 2)).unwrap());
-                    values.push(*NUMBERS_TO_BASE64.get(&((chunk[0] & 0x03) << 4)).unwrap());
-                    values.push('=');
-                    values.push('=');
-                }
-                _ => unreachable!(),
-            };
-            values
-        })
-        .collect()
-}
-
-pub fn xor(a: &[u8], b: &[u8]) -> Result<Vec<u8>> {
-    if a.len() != b.len() {
-        Err(anyhow!(
-            "Data should be of the same length, {} != {}",
-            a.len(),
-            b.len()
-        ))
-    } else {
-        Ok(a.iter().zip(b).map(|(a, b)| a ^ b).collect())
-    }
-}
-
-pub fn get_score(string: &str) -> usize {
-    string
-        .chars()
-        .fold(0usize, |acc, c| acc + get_char_score(c))
-}
-
-pub fn get_char_score(c: char) -> usize {
-    match CHAR_SCORES.get(&c) {
-        Some(score) => *score,
-        None => 0,
-    }
-}
-
-pub fn create_histogram(string: &[u8]) -> Vec<(u8, usize)> {
-    let mut list = string
-        .iter()
-        .fold(HashMap::<u8, usize>::new(), |mut hashmap, b| {
-            match hashmap.get(b) {
-                Some(count) => {
-                    let new = count + 1;
-                    hashmap.insert(*b, new);
-                }
-                None => {
-                    hashmap.insert(*b, 1);
-                }
-            };
-            hashmap
-        })
-        .into_iter()
-        .collect::<Vec<(u8, usize)>>();
-    list.sort_by(|(_, count1), (_, count2)| count2.cmp(count1));
-
-    list
-}
-
-pub fn try_xor_key(key: &[u8], ciphertext: &[u8]) -> (usize, String) {
-    let xored = xor(key, ciphertext).unwrap();
-    match std::str::from_utf8(&xored) {
-        Ok(string) => (get_score(string), string.to_string()),
-        Err(_) => (0, String::new()),
-    }
 }
 
 pub fn find_single_byte_key(ciphertext: &[u8]) -> (u8, usize, String) {
@@ -303,10 +46,6 @@ pub fn find_single_byte_key(ciphertext: &[u8]) -> (u8, usize, String) {
             }
         },
     )
-}
-
-pub fn keystream_from_byte(key: u8, size: usize) -> Vec<u8> {
-    [key].iter().cycle().take(size).copied().collect()
 }
 
 pub fn repeating_key_xor(key: &[u8], plaintext: &[u8]) -> Vec<u8> {
@@ -388,69 +127,6 @@ pub fn break_repeating_key_xor(ciphertext: &[u8]) -> (Vec<u8>, Vec<u8>) {
     (key, plaintext)
 }
 
-pub fn aes_ecb_decrypt(key: &[u8], ciphertext: &[u8], blocksize: usize) -> Vec<u8> {
-    let cipher = Aes128::new(GenericArray::from_slice(key));
-    ciphertext
-        .chunks(blocksize)
-        .flat_map(|chunk| {
-            let mut block = *GenericArray::from_slice(chunk);
-            cipher.decrypt_block(&mut block);
-            block.to_vec()
-        })
-        .collect::<Vec<u8>>()
-}
-
-pub fn aes_ecb_encrypt(key: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
-    let cipher = Aes128::new(GenericArray::from_slice(key));
-    plaintext
-        .chunks(blocksize)
-        .flat_map(|chunk| {
-            let mut block = *GenericArray::from_slice(chunk);
-            cipher.encrypt_block(&mut block);
-            block.to_vec()
-        })
-        .collect()
-}
-
-// CBC mode using ECB
-pub fn aes_cbc_encrypt(key: &[u8], iv: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
-    let (_, output) = plaintext.chunks(blocksize).fold(
-        (iv.to_vec(), Vec::new()),
-        |(prev_ciphertext, mut output), chunk| {
-            // Xor with previous ciphertext, then encrypt
-            let encrypted = aes_ecb_encrypt(key, &xor(&prev_ciphertext, chunk).unwrap(), blocksize);
-            output.extend(encrypted.clone());
-            (encrypted, output)
-        },
-    );
-
-    output
-}
-
-pub fn aes_cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8], blocksize: usize) -> Vec<u8> {
-    let (_, output) = ciphertext.chunks(blocksize).fold(
-        (iv.to_vec(), Vec::new()),
-        |(prev_ciphertext, mut output), chunk| {
-            // Decrypt, then xor with previous ciphertext
-            output.extend(&xor(&prev_ciphertext, &aes_ecb_decrypt(key, chunk, blocksize)).unwrap());
-            (chunk.to_vec(), output)
-        },
-    );
-
-    output
-}
-
-pub fn detect_aes_ecb(ciphertext: &[u8], blocksize: usize) -> bool {
-    let mut chunks = ciphertext.chunks(blocksize).collect::<Vec<&[u8]>>();
-    while let Some(chunk) = chunks.pop() {
-        if chunks.iter().any(|other| *other == chunk) {
-            return true;
-        }
-    }
-
-    false
-}
-
 pub fn pkcs7_pad(plaintext: &[u8], blocksize: usize) -> Vec<u8> {
     let padding_size = (blocksize - (plaintext.len() % blocksize)) % blocksize;
     let mut vec = plaintext.to_vec();
@@ -471,6 +147,7 @@ pub fn pkcs7_unpad(plaintext: &[u8], blocksize: usize) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::*;
 
     pub const ICE_ICE_BABY: &str = "I'm back and I'm ringin' the bell \n\
         A rockin' on the mike while the fly girls yell \n\
@@ -572,30 +249,6 @@ mod tests {
         assert_eq!(
             37,
             hamming_distance("this is a test".as_bytes(), "wokka wokka!!!".as_bytes()),
-        );
-    }
-
-    #[test]
-    fn test_aes_ecb() {
-        let plaintext = "THIS IS MY PLAINTEXT";
-        let key = "YELLOW SUBMARINE";
-        let ciphertext = aes_ecb_encrypt(key.as_bytes(), &pkcs7_pad(plaintext.as_bytes(), 16), 16);
-        assert_eq!(
-            plaintext.as_bytes(),
-            pkcs7_unpad(&aes_ecb_decrypt(key.as_bytes(), &ciphertext, 16), 16),
-        );
-    }
-
-    #[test]
-    fn test_aes_cbc() {
-        let plaintext = "THIS IS MY PLAINTEXT";
-        let key = "YELLOW SUBMARINE";
-        let iv = &[0u8; 16];
-        let ciphertext =
-            aes_cbc_encrypt(key.as_bytes(), iv, &pkcs7_pad(plaintext.as_bytes(), 16), 16);
-        assert_eq!(
-            plaintext.as_bytes(),
-            pkcs7_unpad(&aes_cbc_decrypt(key.as_bytes(), iv, &ciphertext, 16), 16),
         );
     }
 }
