@@ -393,6 +393,14 @@ pub fn detect_aes_ecb(ciphertext: &[u8], blocksize: usize) -> bool {
     false
 }
 
+pub fn pkcs7_pad(plaintext: &[u8], blocksize: usize) -> Vec<u8> {
+    let padding_size = blocksize - (plaintext.len() % blocksize);
+    let mut vec = plaintext.to_vec();
+    vec.extend(std::iter::repeat(padding_size as u8).take(padding_size));
+
+    vec
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
