@@ -1,6 +1,36 @@
-use crate::util::xor;
+use crate::{pkcs7_pad, util::xor};
 use aes::cipher::{generic_array::GenericArray, BlockDecrypt, BlockEncrypt, KeyInit};
 use aes::Aes128;
+use rand::{self, Rng};
+
+pub fn generate_aes_key() -> [u8; 16] {
+    rand::random()
+}
+
+pub fn encryption_oracle(plaintext: &[u8]) -> (Vec<u8>, bool) {
+    let key = generate_aes_key();
+    let prefix_size = rand::thread_rng().gen_range(5..10);
+    let suffix_size = rand::thread_rng().gen_range(5..10);
+
+    let mut to_encrypt: Vec<u8> = Vec::new();
+    (0..prefix_size).for_each(|_| to_encrypt.push(rand::random()));
+    to_encrypt.extend_from_slice(plaintext);
+    (0..suffix_size).for_each(|_| to_encrypt.push(rand::random()));
+
+    if rand::random() {
+        (aes_ecb_encrypt(&key, &pkcs7_pad(&to_encrypt, 16), 16), true)
+    } else {
+        (
+            aes_cbc_encrypt(
+                &key,
+                &rand::random::<[u8; 16]>(),
+                &pkcs7_pad(&to_encrypt, 16),
+                16,
+            ),
+            false,
+        )
+    }
+}
 
 pub fn aes_ecb_decrypt(key: &[u8], ciphertext: &[u8], blocksize: usize) -> Vec<u8> {
     let cipher = Aes128::new(GenericArray::from_slice(key));
