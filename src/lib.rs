@@ -1,3 +1,4 @@
+use crate::aes::get_padding_size;
 use crate::util::{create_histogram, keystream_from_byte, try_xor_key};
 use lazy_static::lazy_static;
 
@@ -128,7 +129,7 @@ pub fn break_repeating_key_xor(ciphertext: &[u8]) -> (Vec<u8>, Vec<u8>) {
 }
 
 pub fn pkcs7_pad(plaintext: &[u8], blocksize: usize) -> Vec<u8> {
-    let padding_size = (blocksize - (plaintext.len() % blocksize)) % blocksize;
+    let padding_size = get_padding_size(plaintext.len(), blocksize);
     let mut vec = plaintext.to_vec();
     vec.extend(std::iter::repeat(padding_size as u8).take(padding_size));
 

@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{aes::detect_aes_ecb, util::unhexify};
+    use crate::{aes::detect_ecb, util::unhexify};
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 
@@ -8,7 +8,7 @@ mod tests {
     fn challenge_8() {
         for line in BufReader::new(File::open("files/8.txt").unwrap()).lines() {
             let ciphertext = unhexify(line.as_ref().unwrap()).unwrap();
-            if detect_aes_ecb(&ciphertext, 16) {
+            if detect_ecb(&ciphertext, 16) {
                 assert_eq!("d880619740a8a19b7840a8a31c810a3d", &line.unwrap()[..32]);
                 return;
             }

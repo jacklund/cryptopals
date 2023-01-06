@@ -137,6 +137,12 @@ lazy_static! {
     };
 }
 
+pub fn generate_random_bytes(size: usize) -> Vec<u8> {
+    std::iter::repeat_with(rand::random::<u8>)
+        .take(size)
+        .collect()
+}
+
 pub fn hexify(value: &[u8]) -> String {
     value
         .iter()
