@@ -134,7 +134,10 @@ pub fn find_blocksize<F: Fn(&[u8]) -> Vec<u8>>(encrypt_fn: &F) -> Option<usize> 
 }
 
 pub fn get_padding_size(datasize: usize, blocksize: usize) -> usize {
-    blocksize - (datasize % blocksize)
+    match datasize % blocksize {
+        0 => 0,
+        value => blocksize - value,
+    }
 }
 
 // Here we get the prefix size of an encryption function by starting with two blocks of plaintext
@@ -176,6 +179,7 @@ pub fn get_suffix_size<F: Fn(&[u8]) -> Vec<u8>>(
     let ciphertext = encrypt_fn(&plaintext);
     let initial_size = ciphertext.len();
     for padding in 1usize..(blocksize - 1) {
+        plaintext.push(b'A');
         let ciphertext = encrypt_fn(&plaintext);
         if ciphertext.len() != initial_size {
             // Initial size is the suffix + prefix pushed to block boundary
@@ -183,7 +187,6 @@ pub fn get_suffix_size<F: Fn(&[u8]) -> Vec<u8>>(
             // since we went over by one)
             return Some(initial_size - (prefix_size + prefix_padding) - (padding - 1));
         }
-        plaintext.push(b'A');
     }
 
     None
