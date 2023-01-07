@@ -195,7 +195,7 @@ pub fn byte_by_byte_ecb_decrypt<F: Fn(&[u8]) -> Vec<u8>>(
     // Empty solution vector
     let mut solution = vec![];
 
-    for pos in 1..test_string_size {
+    for pos in 1..test_string_size + 1 {
         // Create our test string
         let mut test_string = std::iter::repeat(b'A')
             .take(test_string_size - pos)
