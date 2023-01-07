@@ -293,13 +293,18 @@ pub fn pkcs7_pad(plaintext: &[u8], blocksize: usize) -> Vec<u8> {
     vec
 }
 
-pub fn pkcs7_unpad(plaintext: &[u8], blocksize: usize) -> Vec<u8> {
+pub fn pkcs7_unpad(plaintext: &[u8], blocksize: usize) -> Result<Vec<u8>> {
     let padding_value = plaintext[plaintext.len() - 1] as usize;
+    let mut ret = plaintext.to_vec();
     if padding_value <= blocksize {
-        plaintext[..plaintext.len() - padding_value].to_vec()
-    } else {
-        plaintext.to_vec()
+        for _ in 0..padding_value {
+            if ret.pop() != Some(padding_value as u8) {
+                return Err(anyhow!("Bad padding"));
+            }
+        }
     }
+
+    Ok(ret)
 }
 
 #[cfg(test)]

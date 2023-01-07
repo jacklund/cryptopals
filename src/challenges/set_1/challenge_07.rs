@@ -13,7 +13,7 @@ mod tests {
             .lines()
             .flat_map(|line| base64::decode(line.unwrap()).unwrap())
             .collect::<Vec<u8>>();
-        let plaintext = pkcs7_unpad(&ecb_decrypt(key.as_bytes(), &ciphertext, 16), 16);
+        let plaintext = pkcs7_unpad(&ecb_decrypt(key.as_bytes(), &ciphertext, 16), 16).unwrap();
 
         assert_eq!(
             ICE_ICE_BABY,

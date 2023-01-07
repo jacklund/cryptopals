@@ -240,7 +240,7 @@ mod tests {
         let ciphertext = ecb_encrypt(key.as_bytes(), plaintext.as_bytes(), 16);
         assert_eq!(
             plaintext.as_bytes(),
-            pkcs7_unpad(&ecb_decrypt(key.as_bytes(), &ciphertext, 16), 16),
+            pkcs7_unpad(&ecb_decrypt(key.as_bytes(), &ciphertext, 16), 16).unwrap(),
         );
     }
 
@@ -252,7 +252,7 @@ mod tests {
         let ciphertext = cbc_encrypt(key.as_bytes(), iv, plaintext.as_bytes(), 16);
         assert_eq!(
             plaintext.as_bytes(),
-            pkcs7_unpad(&cbc_decrypt(key.as_bytes(), iv, &ciphertext, 16), 16),
+            pkcs7_unpad(&cbc_decrypt(key.as_bytes(), iv, &ciphertext, 16), 16).unwrap(),
         );
     }
 
