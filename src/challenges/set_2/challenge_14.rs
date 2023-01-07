@@ -15,10 +15,11 @@ mod tests {
          YnkK",
         )
         .unwrap();
-        // static ref PREFIX: Vec<u8> = rand::thread_rng()
-        //     .sample_iter(rand::distributions::Standard)
-        //     .take(rand::random::<usize>())
-        //     .collect();
+        static ref SOLUTION: String = "Rollin' in my 5.0\n\
+            With my rag-top down so my hair can blow\n\
+            The girlies on standby waving just to say hi\n\
+            Did you stop? No, I just drove by\n"
+            .to_string();
         static ref BLOCKSIZE: usize = 16;
     }
 
@@ -30,7 +31,6 @@ mod tests {
     fn challenge_14() {
         // Limit the prefix size
         let prefix_size: usize = rand::random::<u8>() as usize;
-        println!("prefix size = {}", prefix_size);
         let prefix: Vec<u8> = rand::thread_rng()
             .sample_iter(rand::distributions::Standard)
             .take(prefix_size)
@@ -67,12 +67,6 @@ mod tests {
 
         let solution = byte_by_byte_ecb_decrypt(&encrypt_fn, prefix_size, suffix_size, blocksize);
         assert!(solution.is_some());
-        assert_eq!(
-            "Rollin' in my 5.0\n\
-            With my rag-top down so my hair can blow\n\
-            The girlies on standby waving just to say hi\n\
-            Did you stop? No, I just drove by\n",
-            std::str::from_utf8(&solution.unwrap()).unwrap()
-        );
+        assert_eq!(*SOLUTION, std::str::from_utf8(&solution.unwrap()).unwrap());
     }
 }
