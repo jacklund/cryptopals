@@ -1,12 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use crate::aes::{
-        ecb_decrypt, ecb_encrypt, find_blocksize, generate_key, get_padding_size, get_prefix_size,
-        get_suffix_size,
-    };
+    use crate::aes::{ecb_decrypt, ecb_encrypt, find_blocksize, generate_key};
     use crate::pkcs7_pad;
-    use base64;
-    use lazy_static::lazy_static;
     use std::collections::HashMap;
 
     fn profile_for(email: &str) -> String {

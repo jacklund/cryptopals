@@ -2,7 +2,7 @@
 mod tests {
     use crate::aes::{
         byte_by_byte_ecb_decrypt, detect_ecb, ecb_encrypt_with_prefix_and_suffix, find_blocksize,
-        generate_key, get_padding_size, get_prefix_size, get_suffix_size,
+        generate_key, get_prefix_size, get_suffix_size,
     };
     use base64;
     use lazy_static::lazy_static;
