@@ -63,7 +63,7 @@ pub fn ecb_decrypt(key: &[u8], ciphertext: &[u8], blocksize: usize) -> Vec<u8> {
 
 pub fn ecb_encrypt(key: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
     let cipher = Aes128::new(GenericArray::from_slice(key));
-    pkcs7_pad(&plaintext, blocksize)
+    pkcs7_pad(plaintext, blocksize)
         .chunks(blocksize)
         .flat_map(|chunk| {
             let mut block = *GenericArray::from_slice(chunk);
