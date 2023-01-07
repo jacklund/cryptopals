@@ -1,7 +1,4 @@
-use crate::{
-    pkcs7_pad,
-    util::{generate_random_bytes, xor},
-};
+use crate::util::{generate_random_bytes, get_padding_size, pkcs7_pad, xor};
 use aes::cipher::{generic_array::GenericArray, BlockDecrypt, BlockEncrypt, KeyInit};
 use aes::Aes128;
 use rand::{self, Rng};
@@ -130,13 +127,6 @@ pub fn find_blocksize<F: Fn(&[u8]) -> Vec<u8>>(encrypt_fn: &F) -> Option<usize> 
     None
 }
 
-pub fn get_padding_size(datasize: usize, blocksize: usize) -> usize {
-    match datasize % blocksize {
-        0 => 0,
-        value => blocksize - value,
-    }
-}
-
 // Here we get the prefix size of an encryption function by starting with two blocks of plaintext
 // filled with the same character, and then add chars until we get two ciphertext blocks that are
 // identical - this means that the prefix is the number of blocks before the identical ciphertext
@@ -241,7 +231,7 @@ pub fn byte_by_byte_ecb_decrypt<F: Fn(&[u8]) -> Vec<u8>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::*;
+    use crate::util::*;
 
     #[test]
     fn test_aes_ecb() {

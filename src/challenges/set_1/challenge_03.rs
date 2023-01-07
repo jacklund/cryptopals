@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{find_single_byte_key, util::unhexify};
+    use crate::{cracking::find_single_byte_key, util::unhexify};
 
     #[test]
     fn challenge_3() {

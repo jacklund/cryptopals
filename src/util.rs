@@ -271,3 +271,62 @@ pub fn try_xor_key(key: &[u8], ciphertext: &[u8]) -> (usize, String) {
         Err(_) => (0, String::new()),
     }
 }
+
+pub fn hamming_distance(a: &[u8], b: &[u8]) -> usize {
+    a.iter()
+        .zip(b)
+        .fold(0u32, |sum, (a, b)| sum + (a ^ b).count_ones()) as usize
+}
+
+pub fn get_padding_size(datasize: usize, blocksize: usize) -> usize {
+    match datasize % blocksize {
+        0 => 0,
+        value => blocksize - value,
+    }
+}
+
+pub fn pkcs7_pad(plaintext: &[u8], blocksize: usize) -> Vec<u8> {
+    let padding_size = get_padding_size(plaintext.len(), blocksize);
+    let mut vec = plaintext.to_vec();
+    vec.extend(std::iter::repeat(padding_size as u8).take(padding_size));
+
+    vec
+}
+
+pub fn pkcs7_unpad(plaintext: &[u8], blocksize: usize) -> Vec<u8> {
+    let padding_value = plaintext[plaintext.len() - 1] as usize;
+    if padding_value <= blocksize {
+        plaintext[..plaintext.len() - padding_value].to_vec()
+    } else {
+        plaintext.to_vec()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hex() {
+        let value: Vec<u8> = vec![163];
+        assert_eq!(unhexify("a3").unwrap(), value);
+        assert!(unhexify("x3").is_err());
+        assert!(matches!(hexify(&[0xa3u8]).as_str(), "a3"));
+    }
+
+    #[test]
+    fn test_base64() {
+        assert_eq!(
+            to_base64("Many hands make light work.".as_bytes()),
+            "TWFueSBoYW5kcyBtYWtlIGxpZ2h0IHdvcmsu"
+        );
+    }
+
+    #[test]
+    fn test_hamming() {
+        assert_eq!(
+            37,
+            hamming_distance("this is a test".as_bytes(), "wokka wokka!!!".as_bytes()),
+        );
+    }
+}

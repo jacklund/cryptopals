@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::pkcs7_pad;
+    use crate::util::pkcs7_pad;
 
     #[test]
     fn challenge_9() {
