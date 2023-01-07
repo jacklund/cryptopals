@@ -26,7 +26,7 @@ pub fn encryption_oracle(key: &[u8], plaintext: &[u8], blocksize: usize) -> (Vec
             cbc_encrypt(
                 key,
                 &generate_random_bytes(blocksize),
-                &pkcs7_pad(&to_encrypt, blocksize),
+                &to_encrypt,
                 blocksize,
             ),
             false,
@@ -75,7 +75,7 @@ pub fn ecb_encrypt(key: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
 
 // CBC mode using ECB
 pub fn cbc_encrypt(key: &[u8], iv: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
-    let (_, output) = plaintext.chunks(blocksize).fold(
+    let (_, output) = pkcs7_pad(plaintext, blocksize).chunks(blocksize).fold(
         (iv.to_vec(), Vec::new()),
         |(prev_ciphertext, mut output), chunk| {
             // Xor with previous ciphertext, then encrypt
@@ -259,7 +259,7 @@ mod tests {
         let plaintext = "THIS IS MY PLAINTEXT";
         let key = "YELLOW SUBMARINE";
         let iv = &[0u8; 16];
-        let ciphertext = cbc_encrypt(key.as_bytes(), iv, &pkcs7_pad(plaintext.as_bytes(), 16), 16);
+        let ciphertext = cbc_encrypt(key.as_bytes(), iv, plaintext.as_bytes(), 16);
         assert_eq!(
             plaintext.as_bytes(),
             pkcs7_unpad(&cbc_decrypt(key.as_bytes(), iv, &ciphertext, 16), 16),
