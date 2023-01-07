@@ -135,7 +135,7 @@ pub fn get_prefix_size<F: Fn(&[u8]) -> Vec<u8>>(encrypt_fn: &F, blocksize: usize
     let mut plaintext = std::iter::repeat(b'A')
         .take(blocksize * 2)
         .collect::<Vec<u8>>();
-    for padding in 0usize..(blocksize - 1) {
+    for padding in 0usize..(100 * blocksize) {
         let ciphertext = encrypt_fn(&plaintext);
         let blocks = ciphertext.chunks(blocksize).collect::<Vec<&[u8]>>();
         for i in 0..blocks.len() - 1 {
