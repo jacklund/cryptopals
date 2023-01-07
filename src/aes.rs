@@ -20,10 +20,7 @@ pub fn encryption_oracle(key: &[u8], plaintext: &[u8], blocksize: usize) -> (Vec
     (0..suffix_size).for_each(|_| to_encrypt.push(rand::random()));
 
     if rand::random() {
-        (
-            ecb_encrypt(key, &pkcs7_pad(&to_encrypt, blocksize), blocksize),
-            true,
-        )
+        (ecb_encrypt(key, &to_encrypt, blocksize), true)
     } else {
         (
             cbc_encrypt(
@@ -49,7 +46,7 @@ pub fn ecb_encrypt_with_prefix_and_suffix(
     payload.extend(plaintext);
     payload.extend(suffix);
 
-    ecb_encrypt(key, &pkcs7_pad(&payload, blocksize), blocksize)
+    ecb_encrypt(key, &payload, blocksize)
 }
 
 pub fn ecb_decrypt(key: &[u8], ciphertext: &[u8], blocksize: usize) -> Vec<u8> {
@@ -66,7 +63,7 @@ pub fn ecb_decrypt(key: &[u8], ciphertext: &[u8], blocksize: usize) -> Vec<u8> {
 
 pub fn ecb_encrypt(key: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
     let cipher = Aes128::new(GenericArray::from_slice(key));
-    plaintext
+    pkcs7_pad(&plaintext, blocksize)
         .chunks(blocksize)
         .flat_map(|chunk| {
             let mut block = *GenericArray::from_slice(chunk);
@@ -250,7 +247,7 @@ mod tests {
     fn test_aes_ecb() {
         let plaintext = "THIS IS MY PLAINTEXT";
         let key = "YELLOW SUBMARINE";
-        let ciphertext = ecb_encrypt(key.as_bytes(), &pkcs7_pad(plaintext.as_bytes(), 16), 16);
+        let ciphertext = ecb_encrypt(key.as_bytes(), plaintext.as_bytes(), 16);
         assert_eq!(
             plaintext.as_bytes(),
             pkcs7_unpad(&ecb_decrypt(key.as_bytes(), &ciphertext, 16), 16),
@@ -277,7 +274,7 @@ mod tests {
             let mut to_be_encrypted = vec![];
             to_be_encrypted.extend(prefix);
             to_be_encrypted.extend(plaintext);
-            ecb_encrypt(key, &pkcs7_pad(&to_be_encrypted, 16), 16)
+            ecb_encrypt(key, &to_be_encrypted, 16)
         };
         let prefix_size = get_prefix_size(&encryption_fn, 16).unwrap();
         assert_eq!(prefix.len(), prefix_size);
@@ -293,7 +290,7 @@ mod tests {
             to_be_encrypted.extend(prefix);
             to_be_encrypted.extend(plaintext);
             to_be_encrypted.extend(suffix);
-            ecb_encrypt(key, &pkcs7_pad(&to_be_encrypted, 16), 16)
+            ecb_encrypt(key, &to_be_encrypted, 16)
         };
         let suffix_size = get_suffix_size(&encryption_fn, prefix.len(), 16).unwrap();
         assert_eq!(suffix.len(), suffix_size);
