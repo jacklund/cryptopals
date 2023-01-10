@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests {
+    use crate::aes::cbc_decrypt;
+    use crate::pkcs7::*;
     use crate::tests::ICE_ICE_BABY;
-    use crate::{aes::cbc_decrypt, util::pkcs7_unpad};
     use base64;
     use std::fs::File;
     use std::io::{BufRead, BufReader};
@@ -13,11 +14,9 @@ mod tests {
             .lines()
             .flat_map(|line| base64::decode(line.unwrap()).unwrap())
             .collect::<Vec<u8>>();
-        let plaintext = pkcs7_unpad(
-            &cbc_decrypt(key.as_bytes(), &[0u8; 16], &ciphertext, 16),
-            16,
-        )
-        .unwrap();
+        let plaintext = cbc_decrypt(key.as_bytes(), &[0u8; 16], &ciphertext, 16)
+            .pkcs7_deserialize(16)
+            .unwrap();
         assert_eq!(ICE_ICE_BABY, std::str::from_utf8(&plaintext).unwrap());
     }
 }

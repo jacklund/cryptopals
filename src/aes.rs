@@ -1,4 +1,5 @@
-use crate::util::{generate_random_bytes, get_padding_size, pkcs7_pad, xor};
+use crate::pkcs7::Serialize;
+use crate::util::{generate_random_bytes, get_padding_size, xor};
 use aes::cipher::{generic_array::GenericArray, BlockDecrypt, BlockEncrypt, KeyInit};
 use aes::Aes128;
 use rand::{self, Rng};
@@ -8,10 +9,7 @@ pub fn generate_key(blocksize: usize) -> Vec<u8> {
 }
 
 pub fn generate_iv(blocksize: usize) -> Vec<u8> {
-    rand::thread_rng()
-        .sample_iter(rand::distributions::Standard)
-        .take(blocksize)
-        .collect()
+    generate_random_bytes(blocksize)
 }
 
 pub fn encryption_oracle(key: &[u8], plaintext: &[u8], blocksize: usize) -> (Vec<u8>, bool) {
@@ -60,9 +58,9 @@ pub fn ecb_decrypt(key: &[u8], ciphertext: &[u8], blocksize: usize) -> Vec<u8> {
         .collect::<Vec<u8>>()
 }
 
-pub fn ecb_encrypt(key: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
+fn ecb_encrypt_without_padding(key: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
     let cipher = Aes128::new(GenericArray::from_slice(key));
-    pkcs7_pad(plaintext, blocksize)
+    plaintext
         .chunks(blocksize)
         .flat_map(|chunk| {
             let mut block = *GenericArray::from_slice(chunk);
@@ -72,13 +70,21 @@ pub fn ecb_encrypt(key: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
         .collect()
 }
 
+pub fn ecb_encrypt(key: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
+    ecb_encrypt_without_padding(key, &plaintext.pkcs7_serialize(blocksize), blocksize)
+}
+
 // CBC mode using ECB
+// c = e(cp ^ p)
+// where c is the ciphertext, cp is the previous ciphertext (or iv), p is the plaintext and e is
+// the encryption function
 pub fn cbc_encrypt(key: &[u8], iv: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
-    let (_, output) = pkcs7_pad(plaintext, blocksize).chunks(blocksize).fold(
+    let (_, output) = plaintext.pkcs7_serialize(blocksize).chunks(blocksize).fold(
         (iv.to_vec(), Vec::new()),
         |(prev_ciphertext, mut output), chunk| {
             // Xor with previous ciphertext, then encrypt
-            let encrypted = ecb_encrypt(key, &xor(&prev_ciphertext, chunk).unwrap(), blocksize);
+            let encrypted =
+                ecb_encrypt_without_padding(key, &xor(&prev_ciphertext, chunk).unwrap(), blocksize);
             output.extend(encrypted.clone());
             (encrypted, output)
         },
@@ -87,6 +93,10 @@ pub fn cbc_encrypt(key: &[u8], iv: &[u8], plaintext: &[u8], blocksize: usize) ->
     output
 }
 
+// CBC mode using ECB
+// p = cp ^ d(c)
+// where c is the ciphertext, cp is the previous ciphertext (or iv), p is the plaintext and d is
+// the decryption function
 pub fn cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8], blocksize: usize) -> Vec<u8> {
     let (_, output) = ciphertext.chunks(blocksize).fold(
         (iv.to_vec(), Vec::new()),
@@ -159,7 +169,9 @@ pub fn get_suffix_size<F: Fn(&[u8]) -> Vec<u8>>(
     blocksize: usize,
 ) -> Option<usize> {
     let mut plaintext = vec![];
+    println!("prefix size = {}", prefix_size);
     let prefix_padding = get_padding_size(prefix_size, blocksize);
+    println!("prefix padding = {}", prefix_padding);
     plaintext.extend(
         std::iter::repeat(b'A')
             .take(prefix_padding)
@@ -167,14 +179,17 @@ pub fn get_suffix_size<F: Fn(&[u8]) -> Vec<u8>>(
     );
     let ciphertext = encrypt_fn(&plaintext);
     let initial_size = ciphertext.len();
+    println!("initial size = {}", initial_size);
     for padding in 1usize..(blocksize - 1) {
+        println!("padding = {}", padding);
         plaintext.push(b'A');
         let ciphertext = encrypt_fn(&plaintext);
+        println!("ciphertext len = {}", ciphertext.len());
         if ciphertext.len() != initial_size {
             // Initial size is the suffix + prefix pushed to block boundary
-            // so take initial size, subtract the prefix stuff, and subtract our padding (minus one
-            // since we went over by one)
-            return Some(initial_size - (prefix_size + prefix_padding) - (padding - 1));
+            // so take initial size, subtract the prefix stuff, and subtract our padding
+            // (since it'll jump up once we hit a block boundary)
+            return Some(initial_size - (prefix_size + prefix_padding) - padding);
         }
     }
 
@@ -233,7 +248,7 @@ pub fn byte_by_byte_ecb_decrypt<F: Fn(&[u8]) -> Vec<u8>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::*;
+    use crate::pkcs7::*;
 
     #[test]
     fn test_aes_ecb() {
@@ -242,7 +257,9 @@ mod tests {
         let ciphertext = ecb_encrypt(key.as_bytes(), plaintext.as_bytes(), 16);
         assert_eq!(
             plaintext.as_bytes(),
-            pkcs7_unpad(&ecb_decrypt(key.as_bytes(), &ciphertext, 16), 16).unwrap(),
+            &ecb_decrypt(key.as_bytes(), &ciphertext, 16)
+                .pkcs7_deserialize(16)
+                .unwrap(),
         );
     }
 
@@ -254,7 +271,9 @@ mod tests {
         let ciphertext = cbc_encrypt(key.as_bytes(), &iv, plaintext.as_bytes(), 16);
         assert_eq!(
             plaintext.as_bytes(),
-            pkcs7_unpad(&cbc_decrypt(key.as_bytes(), &iv, &ciphertext, 16), 16).unwrap(),
+            &cbc_decrypt(key.as_bytes(), &iv, &ciphertext, 16)
+                .pkcs7_deserialize(16)
+                .unwrap(),
         );
     }
 

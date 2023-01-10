@@ -1,6 +1,7 @@
 pub mod aes;
 mod challenges;
 pub mod cracking;
+pub mod pkcs7;
 pub mod util;
 
 #[cfg(test)]

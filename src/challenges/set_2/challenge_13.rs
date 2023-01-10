@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests {
     use crate::aes::{ecb_decrypt, ecb_encrypt, find_blocksize, generate_key};
-    use crate::util::{get_padding_size, pkcs7_pad};
+    use crate::pkcs7::*;
+    use crate::util::get_padding_size;
     use std::collections::HashMap;
 
     fn profile_for(email: &str) -> String {
@@ -28,7 +29,7 @@ mod tests {
         let encrypt_profile_for = |email: &str| {
             ecb_encrypt(
                 &key,
-                &pkcs7_pad(&profile_for(email).as_bytes(), BLOCKSIZE),
+                &profile_for(email).as_bytes().pkcs7_serialize(BLOCKSIZE),
                 BLOCKSIZE,
             )
         };
