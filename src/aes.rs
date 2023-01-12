@@ -245,6 +245,101 @@ pub fn byte_by_byte_ecb_decrypt<F: Fn(&[u8]) -> Vec<u8>>(
     Some(solution)
 }
 
+fn decrypt_block_byte_at_a_time<F: Fn(&[u8], &[u8]) -> bool>(
+    block_num: usize,
+    iv: &[u8],
+    ciphertext: &[u8],
+    blocksize: usize,
+    validation_fn: &F,
+) -> Vec<u8> {
+    let mut solution = vec![];
+
+    // If we're at the first block, we modify the IV, otherwise, the actual ciphertext
+    // blocks
+    let mut block = match block_num {
+        0 => iv.to_vec(),
+        _ => ciphertext.to_vec(),
+    };
+
+    // Iterate backwards through the bytes in the block
+    for byte_index in (0usize..blocksize).rev() {
+        // Since we might be in the IV or the ciphertext, have to index them differently
+        let index = match block_num {
+            0 => byte_index,
+            _ => (block_num - 1) * blocksize + byte_index,
+        };
+
+        // Hold onto the original value
+        let original_value = block[index];
+
+        // Figure out the proper padding value
+        let padding_value: u8 = (blocksize - byte_index) as u8;
+
+        // Find the changed byte value that passes the padding validation
+        match (0u8..=255).find(|byte_value| {
+            block[index] = *byte_value;
+            *byte_value != original_value
+                && match block_num {
+                    0 => validation_fn(&block, &ciphertext),
+                    _ => validation_fn(&iv, &block),
+                }
+        }) {
+            // Found a value that works
+            Some(value) => {
+                // We know that:
+                //   plaintext = decrypt(ciphertext) ^ original_value
+                // Also:
+                //   padding_value = decrypt(ciphertext) ^ value
+                // So:
+                //   plaintext ^ padding_value = decrypt(ciphertext) ^ decrypt(ciphertext) ^ value ^ original_value
+                //                             = value ^ original_value
+                // therefore
+                //   plaintext = value ^ padding_value ^ original_value
+                solution.push(value ^ padding_value ^ original_value);
+            }
+
+            // We didn't find it, chances are, because it's the first byte of
+            // padding. We push the padding value as our solution, and return the original value
+            None => {
+                solution.push(padding_value);
+                block[index] = original_value;
+            }
+        };
+
+        // Reset the already-done bytes for the next padding value
+        let end = match block_num {
+            0 => blocksize,
+            _ => block_num * blocksize,
+        };
+        for mod_index in index..end {
+            block[mod_index] ^= padding_value ^ (padding_value + 1);
+        }
+    }
+
+    solution
+}
+
+pub fn decrypt_byte_at_a_time<F: Fn(&[u8], &[u8]) -> bool>(
+    iv: &[u8],
+    ciphertext: &[u8],
+    blocksize: usize,
+    validation_fn: &F,
+) -> Vec<u8> {
+    let mut solution = vec![];
+    for block_num in (0..ciphertext.len() / blocksize).rev() {
+        solution.extend(decrypt_block_byte_at_a_time(
+            block_num,
+            iv,
+            &ciphertext.clone()[..(block_num + 1) * blocksize],
+            blocksize,
+            validation_fn,
+        ));
+    }
+
+    solution.reverse();
+    solution
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
