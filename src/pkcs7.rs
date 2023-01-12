@@ -21,7 +21,7 @@ pub fn check_padding(data: &[u8], blocksize: usize) -> Result<usize> {
     }
 
     let maybe_padding = data[data.len() - 1];
-    if (maybe_padding as usize) > blocksize {
+    if (maybe_padding as usize) > blocksize || maybe_padding == 0 {
         // We should always have padding
         Err(anyhow!("Bad padding"))
     } else if data[data.len() - maybe_padding as usize..]
