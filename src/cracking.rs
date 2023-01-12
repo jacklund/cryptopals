@@ -2,7 +2,7 @@ use crate::util::{create_histogram, hamming_distance, keystream_from_byte, try_x
 use lazy_static::lazy_static;
 
 lazy_static! {
-    static ref CHAR_LIST_BY_FREQUENCY: Vec<u8> = {
+    pub static ref CHAR_LIST_BY_FREQUENCY: Vec<u8> = {
         " etaoinshrdlu"
             .bytes()
             .flat_map(|b| {
@@ -115,4 +115,25 @@ pub fn break_repeating_key_xor(ciphertext: &[u8]) -> (Vec<u8>, Vec<u8>) {
     let plaintext = repeating_key_xor(&key, ciphertext);
 
     (key, plaintext)
+}
+
+// Break CTR where the same nonce is used
+// This basically becomes the Vignere case, where we break the keystream byte by byte
+pub fn break_ctr(ciphertexts: &[Vec<u8>]) -> Vec<u8> {
+    let mut transposed = vec![];
+    for ciphertext in ciphertexts.clone() {
+        for index in 0..ciphertext.len() {
+            if transposed.len() <= index {
+                transposed.push(vec![]);
+            }
+            transposed[index].push(ciphertext[index]);
+        }
+    }
+
+    let mut keystream = vec![];
+    for line in &transposed {
+        keystream.push(find_single_byte_key(line).0);
+    }
+
+    keystream
 }
