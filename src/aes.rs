@@ -169,9 +169,7 @@ pub fn get_suffix_size<F: Fn(&[u8]) -> Vec<u8>>(
     blocksize: usize,
 ) -> Option<usize> {
     let mut plaintext = vec![];
-    println!("prefix size = {}", prefix_size);
     let prefix_padding = get_padding_size(prefix_size, blocksize);
-    println!("prefix padding = {}", prefix_padding);
     plaintext.extend(
         std::iter::repeat(b'A')
             .take(prefix_padding)
@@ -179,12 +177,9 @@ pub fn get_suffix_size<F: Fn(&[u8]) -> Vec<u8>>(
     );
     let ciphertext = encrypt_fn(&plaintext);
     let initial_size = ciphertext.len();
-    println!("initial size = {}", initial_size);
     for padding in 1usize..(blocksize - 1) {
-        println!("padding = {}", padding);
         plaintext.push(b'A');
         let ciphertext = encrypt_fn(&plaintext);
-        println!("ciphertext len = {}", ciphertext.len());
         if ciphertext.len() != initial_size {
             // Initial size is the suffix + prefix pushed to block boundary
             // so take initial size, subtract the prefix stuff, and subtract our padding
@@ -280,8 +275,8 @@ fn decrypt_block_byte_at_a_time<F: Fn(&[u8], &[u8]) -> bool>(
             block[index] = *byte_value;
             *byte_value != original_value
                 && match block_num {
-                    0 => validation_fn(&block, &ciphertext),
-                    _ => validation_fn(&iv, &block),
+                    0 => validation_fn(&block, ciphertext),
+                    _ => validation_fn(iv, &block),
                 }
         }) {
             // Found a value that works
@@ -311,8 +306,8 @@ fn decrypt_block_byte_at_a_time<F: Fn(&[u8], &[u8]) -> bool>(
             0 => blocksize,
             _ => block_num * blocksize,
         };
-        for mod_index in index..end {
-            block[mod_index] ^= padding_value ^ (padding_value + 1);
+        for byte in block.iter_mut().take(end).skip(index) {
+            *byte ^= padding_value ^ (padding_value + 1);
         }
     }
 
