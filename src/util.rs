@@ -285,6 +285,14 @@ pub fn get_padding_size(datasize: usize, blocksize: usize) -> usize {
     }
 }
 
+pub fn generate_key(blocksize: usize) -> Vec<u8> {
+    generate_random_bytes(blocksize)
+}
+
+pub fn generate_iv(blocksize: usize) -> Vec<u8> {
+    generate_random_bytes(blocksize)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

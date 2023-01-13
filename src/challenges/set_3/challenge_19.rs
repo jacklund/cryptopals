@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use crate::aes::ctr;
     use crate::cracking::break_ctr;
+    use crate::ctr::ctr;
     use crate::util::xor;
     use base64;
 

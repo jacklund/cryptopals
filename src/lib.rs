@@ -1,6 +1,8 @@
-pub mod aes;
+pub mod cbc;
 mod challenges;
 pub mod cracking;
+pub mod ctr;
+pub mod ecb;
 pub mod pkcs7;
 pub mod util;
 

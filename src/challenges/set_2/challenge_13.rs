@@ -1,8 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use crate::aes::{ecb_decrypt, ecb_encrypt, find_blocksize, generate_key};
+    use crate::cracking::find_blocksize;
+    use crate::ecb::{ecb_decrypt, ecb_encrypt};
     use crate::pkcs7::*;
-    use crate::util::get_padding_size;
+    use crate::util::{generate_key, get_padding_size};
     use std::collections::HashMap;
 
     fn profile_for(email: &str) -> String {

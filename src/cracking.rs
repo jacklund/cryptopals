@@ -1,5 +1,9 @@
-use crate::util::{create_histogram, hamming_distance, keystream_from_byte, try_xor_key};
+use crate::ecb::ecb_encrypt_without_padding;
+use crate::util::{
+    create_histogram, get_padding_size, hamming_distance, keystream_from_byte, try_xor_key,
+};
 use lazy_static::lazy_static;
+use std::collections::VecDeque;
 
 lazy_static! {
     pub static ref CHAR_LIST_BY_FREQUENCY: Vec<u8> = {
@@ -136,4 +140,252 @@ pub fn break_ctr(ciphertexts: &[Vec<u8>]) -> Vec<u8> {
     }
 
     keystream
+}
+
+// Find the blocksize by encrypting longer strings until the ciphertext length changes.
+// The blocksize will be the difference in lengths
+pub fn find_blocksize<F: Fn(&[u8]) -> Vec<u8>>(encrypt_fn: &F) -> Option<usize> {
+    let mut plaintext = vec![];
+    let initial = encrypt_fn(&plaintext).len();
+    for size in 0..2048 {
+        plaintext = vec![b'A'; size];
+        let ciphertext = encrypt_fn(&plaintext);
+        if ciphertext.len() != initial {
+            return Some(ciphertext.len() - initial);
+        }
+    }
+
+    None
+}
+
+// Here we get the prefix size of an encryption function by starting with two blocks of plaintext
+// filled with the same character, and then add chars until we get two ciphertext blocks that are
+// identical - this means that the prefix is the number of blocks before the identical ciphertext
+// blocks, minus the added characters
+pub fn get_prefix_size<F: Fn(&[u8]) -> Vec<u8>>(encrypt_fn: &F, blocksize: usize) -> Option<usize> {
+    let mut plaintext = std::iter::repeat(b'A')
+        .take(blocksize * 2)
+        .collect::<Vec<u8>>();
+    for padding in 0usize..(100 * blocksize) {
+        let ciphertext = encrypt_fn(&plaintext);
+        let blocks = ciphertext.chunks(blocksize).collect::<Vec<&[u8]>>();
+        for i in 0..blocks.len() - 1 {
+            if blocks[i] == blocks[i + 1] {
+                return Some(blocksize * i - padding);
+            }
+        }
+        plaintext.push(b'A');
+    }
+
+    None
+}
+
+// Pad out the prefix to a full block, then add chars to the plaintext until we go over a block
+// boundary, and count from there
+pub fn get_suffix_size<F: Fn(&[u8]) -> Vec<u8>>(
+    encrypt_fn: &F,
+    prefix_size: usize,
+    blocksize: usize,
+) -> Option<usize> {
+    let mut plaintext = vec![];
+    let prefix_padding = get_padding_size(prefix_size, blocksize);
+    plaintext.extend(
+        std::iter::repeat(b'A')
+            .take(prefix_padding)
+            .collect::<Vec<u8>>(),
+    );
+    let ciphertext = encrypt_fn(&plaintext);
+    let initial_size = ciphertext.len();
+    for padding in 1usize..(blocksize - 1) {
+        plaintext.push(b'A');
+        let ciphertext = encrypt_fn(&plaintext);
+        if ciphertext.len() != initial_size {
+            // Initial size is the suffix + prefix pushed to block boundary
+            // so take initial size, subtract the prefix stuff, and subtract our padding
+            // (since it'll jump up once we hit a block boundary)
+            return Some(initial_size - (prefix_size + prefix_padding) - padding);
+        }
+    }
+
+    None
+}
+
+fn decrypt_block_byte_at_a_time<F: Fn(&[u8], &[u8]) -> bool>(
+    block_num: usize,
+    iv: &[u8],
+    ciphertext: &[u8],
+    blocksize: usize,
+    validation_fn: &F,
+) -> Vec<u8> {
+    let mut solution = vec![];
+
+    // If we're at the first block, we modify the IV, otherwise, the actual ciphertext
+    // blocks
+    let mut block = match block_num {
+        0 => iv.to_vec(),
+        _ => ciphertext.to_vec(),
+    };
+
+    // Iterate backwards through the bytes in the block
+    for byte_index in (0usize..blocksize).rev() {
+        // Since we might be in the IV or the ciphertext, have to index them differently
+        let index = match block_num {
+            0 => byte_index,
+            _ => (block_num - 1) * blocksize + byte_index,
+        };
+
+        // Hold onto the original value
+        let original_value = block[index];
+
+        // Figure out the proper padding value
+        let padding_value: u8 = (blocksize - byte_index) as u8;
+
+        // Find the changed byte value that passes the padding validation
+        match (0u8..=255).find(|byte_value| {
+            block[index] = *byte_value;
+            *byte_value != original_value
+                && match block_num {
+                    0 => validation_fn(&block, ciphertext),
+                    _ => validation_fn(iv, &block),
+                }
+        }) {
+            // Found a value that works
+            Some(value) => {
+                // We know that:
+                //   plaintext = decrypt(ciphertext) ^ original_value
+                // Also:
+                //   padding_value = decrypt(ciphertext) ^ value
+                // So:
+                //   plaintext ^ padding_value = decrypt(ciphertext) ^ decrypt(ciphertext) ^ value ^ original_value
+                //                             = value ^ original_value
+                // therefore
+                //   plaintext = value ^ padding_value ^ original_value
+                solution.push(value ^ padding_value ^ original_value);
+            }
+
+            // We didn't find it, chances are, because it's the first byte of
+            // padding. We push the padding value as our solution, and return the original value
+            None => {
+                solution.push(padding_value);
+                block[index] = original_value;
+            }
+        };
+
+        // Reset the already-done bytes for the next padding value
+        let end = match block_num {
+            0 => blocksize,
+            _ => block_num * blocksize,
+        };
+        for byte in block.iter_mut().take(end).skip(index) {
+            *byte ^= padding_value ^ (padding_value + 1);
+        }
+    }
+
+    solution
+}
+
+pub fn decrypt_byte_at_a_time<F: Fn(&[u8], &[u8]) -> bool>(
+    iv: &[u8],
+    ciphertext: &[u8],
+    blocksize: usize,
+    validation_fn: &F,
+) -> Vec<u8> {
+    let mut solution = vec![];
+    for block_num in (0..ciphertext.len() / blocksize).rev() {
+        solution.extend(decrypt_block_byte_at_a_time(
+            block_num,
+            iv,
+            &ciphertext.clone()[..(block_num + 1) * blocksize],
+            blocksize,
+            validation_fn,
+        ));
+    }
+
+    solution.reverse();
+    solution
+}
+
+struct KeyStreamIterator {
+    counter: u64,
+    key: Vec<u8>,
+    nonce: u64,
+    blocksize: usize,
+    key_block: VecDeque<u8>,
+}
+
+impl KeyStreamIterator {
+    fn new(key: &[u8], nonce: u64, blocksize: usize) -> Self {
+        Self {
+            counter: 0,
+            key: key.to_vec(),
+            nonce,
+            blocksize,
+            key_block: VecDeque::new(),
+        }
+    }
+
+    fn next_block(&mut self) {
+        let mut nonce_and_counter = self.nonce.to_le_bytes().to_vec();
+        nonce_and_counter.extend(self.counter.to_le_bytes().to_vec());
+        self.counter += 1;
+        self.key_block = VecDeque::from(ecb_encrypt_without_padding(
+            &self.key,
+            &nonce_and_counter,
+            self.blocksize,
+        ));
+    }
+}
+
+impl Iterator for KeyStreamIterator {
+    type Item = u8;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.key_block.is_empty() {
+            self.next_block();
+        }
+        self.key_block.pop_front()
+    }
+}
+
+pub fn ctr(key: &[u8], nonce: u64, input: &[u8], blocksize: usize) -> Vec<u8> {
+    KeyStreamIterator::new(key, nonce, blocksize)
+        .zip(input.iter())
+        .map(|(k, p)| k ^ *p)
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ecb::*;
+
+    #[test]
+    fn test_get_prefix_size() {
+        let prefix = "YELLOW SUBMARINE PREFIX".as_bytes();
+        let key = "YELLOW SUBMARINE".as_bytes();
+        let encryption_fn = |plaintext: &[u8]| {
+            let mut to_be_encrypted = vec![];
+            to_be_encrypted.extend(prefix);
+            to_be_encrypted.extend(plaintext);
+            ecb_encrypt(key, &to_be_encrypted, 16)
+        };
+        let prefix_size = get_prefix_size(&encryption_fn, 16).unwrap();
+        assert_eq!(prefix.len(), prefix_size);
+    }
+
+    #[test]
+    fn test_get_suffix_size() {
+        let prefix = "YELLOW SUBMARINE PREFIX".as_bytes();
+        let suffix = "YELLOW SUBMARINE SUFFIX".as_bytes();
+        let key = "YELLOW SUBMARINE".as_bytes();
+        let encryption_fn = |plaintext: &[u8]| {
+            let mut to_be_encrypted = vec![];
+            to_be_encrypted.extend(prefix);
+            to_be_encrypted.extend(plaintext);
+            to_be_encrypted.extend(suffix);
+            ecb_encrypt(key, &to_be_encrypted, 16)
+        };
+        let suffix_size = get_suffix_size(&encryption_fn, prefix.len(), 16).unwrap();
+        assert_eq!(suffix.len(), suffix_size);
+    }
 }

@@ -1,9 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use crate::aes::{
-        byte_by_byte_ecb_decrypt, detect_ecb, ecb_encrypt_with_prefix_and_suffix, find_blocksize,
-        generate_key, get_prefix_size, get_suffix_size,
-    };
+    use crate::cracking::{find_blocksize, get_prefix_size, get_suffix_size};
+    use crate::ecb::{byte_by_byte_ecb_decrypt, detect_ecb, ecb_encrypt_with_prefix_and_suffix};
+    use crate::util::generate_key;
     use lazy_static::lazy_static;
     use rand::{self, Rng};
 

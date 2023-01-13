@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::aes::ecb_decrypt;
+    use crate::ecb::ecb_decrypt;
     use crate::pkcs7::Deserialize;
     use crate::tests::ICE_ICE_BABY;
     use base64;

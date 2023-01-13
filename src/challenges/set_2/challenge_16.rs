@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use crate::aes::{cbc_decrypt, cbc_encrypt, generate_iv, generate_key};
+    use crate::cbc::{cbc_decrypt, cbc_encrypt};
+    use crate::util::{generate_iv, generate_key};
     use std::collections::HashMap;
 
     // Encode our string, making sure to escape ; and = (and space, just for fun)

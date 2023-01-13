@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::aes::ctr;
+    use crate::ctr::ctr;
     use base64;
 
     #[test]

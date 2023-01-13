@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use crate::aes::{cbc_decrypt, cbc_encrypt, decrypt_byte_at_a_time, generate_iv, generate_key};
+    use crate::cbc::{cbc_decrypt, cbc_encrypt};
+    use crate::cracking::decrypt_byte_at_a_time;
     use crate::pkcs7::*;
+    use crate::util::{generate_iv, generate_key};
     use base64;
     use rand::{self, Rng};
 
