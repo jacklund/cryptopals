@@ -75,7 +75,7 @@ impl MarsenneTwister {
 }
 
 pub fn temper(value: u64) -> u32 {
-    let mut y: u64 = value as u64;
+    let mut y: u64 = value;
     y ^= (y >> U) & D;
     y ^= (y << S) & B;
     y ^= (y << T) & C;

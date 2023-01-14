@@ -3,3 +3,4 @@ mod challenge_18;
 mod challenge_19;
 mod challenge_20;
 mod challenge_21;
+mod challenge_22;
