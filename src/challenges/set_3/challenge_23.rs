@@ -4,10 +4,6 @@ mod tests {
     use crate::mt19937::MarsenneTwister;
     use rand::RngCore;
 
-    // Twenty-Second cryptopals challenge - https://cryptopals.com/sets/3/challenges/22
-    // This one is silly - someone seeds the MT with the timestamp, and all you need to do
-    // is grab the first random value, and then use a range of times up to now for the seed
-    // guesses.
     #[test]
     fn challenge23() {
         let mut mt = MarsenneTwister::from_seed(rand::random::<u32>());

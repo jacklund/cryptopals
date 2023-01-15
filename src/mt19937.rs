@@ -156,10 +156,14 @@ impl iter::IntoIterator for MarsenneTwister {
     }
 }
 
+pub fn mt_crypt(key: u32, data: &[u8]) -> Vec<u8> {
+    let mt_iter = MTIterator::new(key);
+    data.iter().zip(mt_iter).map(|(d, k)| d ^ k).collect()
+}
+
 #[cfg(test)]
 mod tests {
-    //use brute_force_xor_key;
-    use crate::mt19937::MarsenneTwister;
+    use super::*;
     use rand::RngCore;
     use std::iter;
 
@@ -187,5 +191,17 @@ mod tests {
             let value = u32::from_le_bytes(buffer);
             assert_eq!(mt.next_u32(), value);
         }
+    }
+
+    #[test]
+    fn test_mt_encrypt_decrypt() {
+        let key: u32 = rand::random();
+        let plaintext = "Please encrypt me";
+        let ciphertext = mt_crypt(key, plaintext.as_bytes());
+
+        assert_eq!(
+            plaintext,
+            std::str::from_utf8(&mt_crypt(key, &ciphertext)).unwrap()
+        );
     }
 }
