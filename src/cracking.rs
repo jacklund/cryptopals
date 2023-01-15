@@ -1,4 +1,5 @@
 use crate::ecb::ecb_encrypt_without_padding;
+use crate::mt19937::{B, C, L, S, T, U};
 use crate::util::{
     create_histogram, get_padding_size, hamming_distance, keystream_from_byte, try_xor_key,
 };
@@ -354,10 +355,51 @@ pub fn ctr(key: &[u8], nonce: u64, input: &[u8], blocksize: usize) -> Vec<u8> {
         .collect()
 }
 
+// The following were cribbed from https://jazzy.id.au/2010/09/22/cracking_random_number_generators_part_3.html
+pub fn unbitshift_right_xor(v: u64, shift: usize) -> u64 {
+    let mut i = 0;
+    let mut result: u64 = 0;
+    let mut value: u64 = v;
+    while i * shift < 32 {
+        let partmask: u64 = ((u32::MAX << (32 - shift)) >> (shift * i) as u64).into();
+        let part: u64 = value & partmask;
+        value ^= part >> shift;
+        result |= part;
+        i += 1;
+    }
+
+    result
+}
+
+pub fn unbitshift_left_xor(v: u64, shift: usize, mask: u64) -> u64 {
+    let mut i = 0;
+    let mut result: u64 = 0;
+    let mut value: u64 = v;
+    while i * shift < 32 {
+        let partmask: u64 = ((u32::MAX >> (32 - shift)) << (shift * i) as u64).into();
+        let part: u64 = value & partmask;
+        value ^= (part << shift) & mask;
+        result |= part;
+        i += 1;
+    }
+
+    result
+}
+
+pub fn untemper(value: u32) -> u64 {
+    let mut result = unbitshift_right_xor(u64::from(value), L);
+    result = unbitshift_left_xor(result, T, C);
+    result = unbitshift_left_xor(result, S, B);
+    result = unbitshift_right_xor(result, U);
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::ecb::*;
+    use crate::mt19937::{temper, B, C, L, S, T, U};
 
     #[test]
     fn test_get_prefix_size() {
@@ -387,5 +429,40 @@ mod tests {
         };
         let suffix_size = get_suffix_size(&encryption_fn, prefix.len(), 16).unwrap();
         assert_eq!(suffix.len(), suffix_size);
+    }
+
+    #[test]
+    fn test_unbitshift_left_xor() {
+        let mut original: u64 = rand::random::<u32>() as u64;
+        let mut value = original ^ ((original << S) & B);
+
+        assert_eq!(original, unbitshift_left_xor(value, S, B));
+
+        original = rand::random::<u32>() as u64;
+        value = original ^ ((original << T) & C);
+
+        assert_eq!(original, unbitshift_left_xor(value, T, C));
+    }
+
+    #[test]
+    fn test_unbitshift_right_xor() {
+        let mut original: u64 = rand::random::<u32>() as u64;
+        let mut value = original ^ (original >> L);
+
+        assert_eq!(original, unbitshift_right_xor(value, L));
+
+        original = rand::random::<u32>() as u64;
+        value = original ^ (original >> U);
+
+        assert_eq!(original, unbitshift_right_xor(value, U));
+    }
+
+    #[test]
+    fn test_untemper() {
+        let original: u64 = rand::random::<u32>() as u64;
+        let result: u32 = temper(original);
+
+        let untempered = untemper(result);
+        assert_eq!(original, untempered);
     }
 }
