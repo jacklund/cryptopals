@@ -356,6 +356,11 @@ pub fn ctr(key: &[u8], nonce: u64, input: &[u8], blocksize: usize) -> Vec<u8> {
 }
 
 // The following were cribbed from https://jazzy.id.au/2010/09/22/cracking_random_number_generators_part_3.html
+// Basically, since we're "undoing" a right shift and xor, we redo the right shift and xor to get
+// the original value (original ^ original_shifted = current => original = original_shifted ^
+// current). However, we don't _have_ the original value anywhere except the first shift bits, so
+// we have to shift that, xor, take those bits, and the next shift bits are now original, so we do
+// it again.
 pub fn unbitshift_right_xor(v: u64, shift: usize) -> u64 {
     let mut i = 0;
     let mut result: u64 = 0;
@@ -371,6 +376,8 @@ pub fn unbitshift_right_xor(v: u64, shift: usize) -> u64 {
     result
 }
 
+// Much the same as the previous, except the order of operations are slightly different
+// Same concept though
 pub fn unbitshift_left_xor(v: u64, shift: usize, mask: u64) -> u64 {
     let mut i = 0;
     let mut result: u64 = 0;
@@ -386,6 +393,7 @@ pub fn unbitshift_left_xor(v: u64, shift: usize, mask: u64) -> u64 {
     result
 }
 
+// We "undo" the original temper operations in the reverse order that they were applied
 pub fn untemper(value: u32) -> u64 {
     let mut result = unbitshift_right_xor(u64::from(value), L);
     result = unbitshift_left_xor(result, T, C);
