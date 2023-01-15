@@ -19,7 +19,6 @@ mod tests {
 
         let mut mt2 = MarsenneTwister::from_splice(&generator);
         for index in 0..624 {
-            println!("Index = {}", index);
             assert_eq!(values[index], mt2.next_u32());
         }
     }

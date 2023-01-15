@@ -1,7 +1,7 @@
 use crate::ecb::ecb_encrypt_without_padding;
 use std::collections::VecDeque;
 
-struct KeyStreamIterator {
+pub struct KeyStreamIterator {
     counter: u64,
     key: Vec<u8>,
     nonce: u64,
@@ -10,7 +10,7 @@ struct KeyStreamIterator {
 }
 
 impl KeyStreamIterator {
-    fn new(key: &[u8], nonce: u64, blocksize: usize) -> Self {
+    pub fn new(key: &[u8], nonce: u64, blocksize: usize) -> Self {
         Self {
             counter: 0,
             key: key.to_vec(),
@@ -20,7 +20,7 @@ impl KeyStreamIterator {
         }
     }
 
-    fn next_block(&mut self) {
+    pub fn next_block(&mut self) {
         let mut nonce_and_counter = self.nonce.to_le_bytes().to_vec();
         nonce_and_counter.extend(self.counter.to_le_bytes().to_vec());
         self.counter += 1;

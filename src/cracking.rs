@@ -6,9 +6,12 @@ use crate::util::{
 use lazy_static::lazy_static;
 use std::collections::VecDeque;
 
+pub const ETAOIN: &str =
+    " \neEtTaAoOiInNsShHrRlLdDuUcCmMwWyYfFgGpPbBvVkKjJxXqQzZ0123456789.,!?'\":;-";
+
 lazy_static! {
     pub static ref CHAR_LIST_BY_FREQUENCY: Vec<u8> = {
-        " etaoinshrdlu"
+        ETAOIN
             .bytes()
             .flat_map(|b| {
                 if b as char == ' ' {
