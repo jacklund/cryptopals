@@ -5,6 +5,7 @@ pub mod ctr;
 pub mod ecb;
 pub mod mt19937;
 pub mod pkcs7;
+pub mod sha1;
 pub mod util;
 
 #[cfg(test)]
