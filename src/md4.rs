@@ -28,20 +28,15 @@ pub fn get_padding(message_len: usize) -> Vec<u8> {
     let mut padding = vec![0x80u8];
     padding.extend(std::iter::repeat(0u8).take(padding_size - 1));
 
+    // Add the message len (in bits) as the final 8 bytes, taking it to an even multiple of 64
+    // bytes
+    padding.extend(((message_len * 8) as u64).to_le_bytes());
+
     padding
 }
 
-fn pad_message(message: &[u8]) -> Vec<u8> {
-    let padding = get_padding(message.len());
-
-    let mut output = message.to_vec();
-    output.extend(padding);
-
-    output
-}
-
 pub fn md4(message: &[u8]) -> Vec<u8> {
-    MD4::default().generate_hash(message)
+    MD4::default().generate_hash(message, message.len())
 }
 
 pub fn md4_mac(key: &[u8], message: &[u8]) -> Vec<u8> {
@@ -94,7 +89,7 @@ impl MD4 {
     pub fn mac(&mut self, key: &[u8], message: &[u8]) -> Vec<u8> {
         let mut value = key.to_vec();
         value.extend(message);
-        self.generate_hash(&value)
+        self.generate_hash(&value, value.len())
     }
 
     fn round_1(&mut self, block: &[u32]) {
@@ -154,13 +149,10 @@ impl MD4 {
         self.b = operation_3(self.b, self.c, self.d, self.a, block[15], 15);
     }
 
-    pub fn generate_hash(&mut self, message: &[u8]) -> Vec<u8> {
+    pub fn generate_hash(&mut self, message: &[u8], message_len: usize) -> Vec<u8> {
         // Pad message out so that len % 64 = 56
-        let mut output = pad_message(message);
-
-        // Add the message len (in bits) as the final 8 bytes, taking it to an even multiple of 64
-        // bytes
-        output.extend(((message.len() * 8) as u64).to_le_bytes());
+        let mut output = message.to_vec();
+        output.extend(get_padding(message_len));
 
         // Split into 32-bit words
         let words = output
@@ -209,19 +201,6 @@ mod tests {
         let message = std::iter::repeat(b'A').take(56).collect::<Vec<u8>>();
         let padding_size = get_padding_size(message.len());
         assert_eq!(120, padding_size + message.len());
-    }
-
-    #[test]
-    fn test_pad_message() {
-        for _ in 0..20 {
-            let message = std::iter::repeat(b'A')
-                .take(rand::thread_rng().gen_range(5..200))
-                .collect::<Vec<u8>>();
-            let padded = pad_message(&message);
-            assert_eq!(message, padded[..message.len()]);
-            assert_eq!(0x80u8, padded[message.len()]);
-            assert!(padded[message.len() + 1..].iter().all(|b| *b == 0u8));
-        }
     }
 
     #[test]
