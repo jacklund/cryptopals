@@ -3,6 +3,7 @@ mod challenges;
 pub mod cracking;
 pub mod ctr;
 pub mod ecb;
+pub mod md4;
 pub mod mt19937;
 pub mod pkcs7;
 pub mod sha1;
