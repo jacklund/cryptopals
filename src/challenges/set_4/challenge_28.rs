@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::sha1::sha1_mac;
+    use crate::digest::sha1::sha1_mac;
     use crate::util::generate_random_bytes;
 
     #[test]

@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use crate::md4::*;
+    use crate::digest::md4::*;
+    use crate::digest::Digest;
 
     fn slice_to_u32(slice: &[u8]) -> u32 {
         u32::from_le_bytes(slice.try_into().unwrap())
@@ -40,8 +41,9 @@ mod tests {
             // Construct the digest from the state of the original mac, adding the new message, and
             // specifying the updated length. Since we're using the state, it'll start with the
             // original state of the md4 digest, and then add in our extras
-            let forged_digest = MD4::new(a, b, c, d)
-                .generate_hash(new_message.as_bytes(), keylen + forged_message.len());
+            let forged_digest = MD4::new_with_init(a, b, c, d)
+                .update_with_length(new_message.as_bytes(), keylen + forged_message.len())
+                .digest();
             (forged_message, forged_digest)
         };
 

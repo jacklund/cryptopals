@@ -1,3 +1,5 @@
+use super::Digest;
+
 const A: u32 = u32::from_be(0x01234567);
 const B: u32 = u32::from_be(0x89abcdef);
 const C: u32 = u32::from_be(0xfedcba98);
@@ -36,11 +38,11 @@ pub fn get_padding(message_len: usize) -> Vec<u8> {
 }
 
 pub fn md4(message: &[u8]) -> Vec<u8> {
-    MD4::default().generate_hash(message, message.len())
+    MD4::new().update(message).digest()
 }
 
 pub fn md4_mac(key: &[u8], message: &[u8]) -> Vec<u8> {
-    MD4::default().mac(key, message)
+    MD4::new().mac(key, message)
 }
 
 pub struct MD4 {
@@ -48,17 +50,6 @@ pub struct MD4 {
     b: u32,
     c: u32,
     d: u32,
-}
-
-impl Default for MD4 {
-    fn default() -> Self {
-        Self {
-            a: A,
-            b: B,
-            c: C,
-            d: D,
-        }
-    }
 }
 
 fn operation_1(a: u32, b: u32, c: u32, d: u32, value: u32, shift: u32) -> u32 {
@@ -82,14 +73,14 @@ fn operation_3(a: u32, b: u32, c: u32, d: u32, value: u32, shift: u32) -> u32 {
 }
 
 impl MD4 {
-    pub fn new(a: u32, b: u32, c: u32, d: u32) -> Self {
+    pub fn new_with_init(a: u32, b: u32, c: u32, d: u32) -> Self {
         Self { a, b, c, d }
     }
 
     pub fn mac(&mut self, key: &[u8], message: &[u8]) -> Vec<u8> {
         let mut value = key.to_vec();
         value.extend(message);
-        self.generate_hash(&value, value.len())
+        self.update(&value).digest()
     }
 
     fn round_1(&mut self, block: &[u32]) {
@@ -148,8 +139,25 @@ impl MD4 {
         self.c = operation_3(self.c, self.d, self.a, self.b, block[7], 11);
         self.b = operation_3(self.b, self.c, self.d, self.a, block[15], 15);
     }
+}
 
-    pub fn generate_hash(&mut self, message: &[u8], message_len: usize) -> Vec<u8> {
+impl Digest for MD4 {
+    const BLOCKSIZE: usize = 64;
+
+    fn new() -> Self {
+        Self {
+            a: A,
+            b: B,
+            c: C,
+            d: D,
+        }
+    }
+
+    fn update(&mut self, message: &[u8]) -> &mut Self {
+        self.update_with_length(message, message.len())
+    }
+
+    fn update_with_length(&mut self, message: &[u8], message_len: usize) -> &mut Self {
         // Pad message out so that len % 64 = 56
         let mut output = message.to_vec();
         output.extend(get_padding(message_len));
@@ -160,7 +168,6 @@ impl MD4 {
             .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
             .collect::<Vec<u32>>();
 
-        let mut out = vec![];
         for block in words.chunks(16) {
             // Rounds
             self.round_1(block);
@@ -174,7 +181,12 @@ impl MD4 {
             self.d = self.d.wrapping_add(D);
         }
 
+        self
+    }
+
+    fn digest(&mut self) -> Vec<u8> {
         // Generate the output
+        let mut out = vec![];
         out.extend(self.a.to_le_bytes().to_vec());
         out.extend(self.b.to_le_bytes().to_vec());
         out.extend(self.c.to_le_bytes().to_vec());
@@ -187,6 +199,7 @@ impl MD4 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::unhexify;
     use rand::{self, Rng};
 
     #[test]
@@ -207,12 +220,10 @@ mod tests {
     fn test_md4() {
         let message = "love1234";
         let hash = md4(message.as_bytes());
-        assert_eq!(
-            vec![
-                0x84, 0xfb, 0xc7, 0x74, 0x4c, 0xb2, 0xff, 0x16, 0x3b, 0x68, 0x4e, 0x0a, 0xed, 0xcd,
-                0xb8, 0xda
-            ],
-            hash,
-        );
+        assert_eq!(unhexify("84fbc7744cb2ff163b684e0aedcdb8da").unwrap(), hash);
+
+        let message = "Terminator X: Bring the noise";
+        let hash = md4(message.as_bytes());
+        assert_eq!(unhexify("851cea118e0e18927aa39066cb4b1590").unwrap(), hash);
     }
 }

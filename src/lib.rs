@@ -2,11 +2,11 @@ pub mod cbc;
 mod challenges;
 pub mod cracking;
 pub mod ctr;
+pub mod digest;
 pub mod ecb;
-pub mod md4;
+pub mod hmac;
 pub mod mt19937;
 pub mod pkcs7;
-pub mod sha1;
 pub mod util;
 
 #[cfg(test)]

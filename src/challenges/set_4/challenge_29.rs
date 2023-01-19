@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use crate::sha1::get_padding;
-    use crate::sha1::sha1_mac;
-    use crate::sha1::sha1_with_init;
+    use crate::digest::sha1::{get_padding, sha1_mac, SHA1};
+    use crate::digest::Digest;
 
     fn slice_to_u32(slice: &[u8]) -> u32 {
         u32::from_be_bytes(slice.try_into().unwrap())
@@ -31,15 +30,9 @@ mod tests {
             let mut forged_message = original_plaintext.as_bytes().to_vec();
             forged_message.extend(glue_padding);
             forged_message.extend(new_message.as_bytes().to_vec());
-            let forged_digest = sha1_with_init(
-                &new_message.as_bytes(),
-                a,
-                b,
-                c,
-                d,
-                e,
-                keylen + forged_message.len(),
-            );
+            let forged_digest = SHA1::new_with_init(a, b, c, d, e)
+                .update_with_length(&new_message.as_bytes(), keylen + forged_message.len())
+                .digest();
             (forged_message, forged_digest)
         };
 
