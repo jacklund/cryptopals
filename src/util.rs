@@ -293,6 +293,47 @@ pub fn generate_iv(blocksize: usize) -> Vec<u8> {
     generate_random_bytes(blocksize)
 }
 
+pub fn mean(data: &[u128]) -> Option<f32> {
+    let sum = data.iter().sum::<u128>() as f32;
+    let count = data.len();
+
+    match count {
+        positive if positive > 0 => Some(sum / count as f32),
+        _ => None,
+    }
+}
+
+pub fn std_deviation(data: &[u128]) -> Option<f32> {
+    match (mean(data), data.len()) {
+        (Some(data_mean), count) if count > 0 => {
+            let variance = data
+                .iter()
+                .map(|value| {
+                    let diff = data_mean - (*value as f32);
+
+                    diff * diff
+                })
+                .sum::<f32>()
+                / count as f32;
+
+            Some(variance.sqrt())
+        }
+        _ => None,
+    }
+}
+
+pub fn calculate_zscore(data: &[u128], value: u128) -> Option<f32> {
+    let mean = mean(data);
+    match (mean, std_deviation(data)) {
+        (Some(mean), Some(std_deviation)) => {
+            let diff = value as f32 - mean;
+
+            Some(diff / std_deviation)
+        }
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -3,6 +3,7 @@ pub mod sha1;
 
 pub trait Digest {
     const BLOCKSIZE: usize;
+    const OUTPUT_SIZE: usize;
 
     fn new() -> Self;
 

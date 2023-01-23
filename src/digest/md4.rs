@@ -143,6 +143,7 @@ impl MD4 {
 
 impl Digest for MD4 {
     const BLOCKSIZE: usize = 64;
+    const OUTPUT_SIZE: usize = 16;
 
     fn new() -> Self {
         Self {
