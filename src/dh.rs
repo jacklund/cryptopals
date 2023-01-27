@@ -21,9 +21,9 @@ lazy_static! {
 }
 
 pub struct DiffieHellman {
-    p: BigUint,
-    g: BigUint,
-    private_key: BigUint,
+    pub p: BigUint,
+    pub g: BigUint,
+    pub private_key: BigUint,
 }
 
 impl DiffieHellman {
