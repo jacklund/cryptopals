@@ -2,6 +2,7 @@ pub mod cbc;
 mod challenges;
 pub mod cracking;
 pub mod ctr;
+pub mod dh;
 pub mod digest;
 pub mod ecb;
 pub mod hmac;
