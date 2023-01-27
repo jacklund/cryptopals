@@ -125,7 +125,7 @@ impl HMacServer {
         let use_insecure = self.use_insecure;
         Iron::new(move |req: &mut Request| handle_request(req, &key, sleep_time_msec, use_insecure))
             .http("localhost:3000")
-            .map_err(|e| e.into())
+            .map_err(|e| e)
     }
 }
 
@@ -133,7 +133,7 @@ pub async fn hmac_client(file: &str, signature: &[u8]) -> reqwest::StatusCode {
     let response = reqwest::get(format!(
         "http://localhost:3000/test?file={}&signature={}",
         file,
-        hexify(&signature)
+        hexify(signature)
     ))
     .await
     .unwrap();
@@ -174,20 +174,20 @@ where
         // Figure out the zscore of this iteration, if it's over the threshold, we test again
         // just to make sure it's not an anomaly
         let zscore = calculate_zscore(&self.measurements, duration);
-        if zscore.is_some() {
+        if let Some(zscore) = zscore {
             println!(
                 "signature = {:?}, duration = {}, zscore = {}, threshold = {}, over threshold = {}",
                 signature,
                 duration,
-                zscore.unwrap(),
+                zscore,
                 self.threshold,
-                zscore.unwrap() >= self.threshold
+                zscore >= self.threshold
             );
-            if zscore.unwrap() >= self.threshold {
+            if zscore >= self.threshold {
                 // Measure twice (or, in this case, 5 times), cut once
                 let mut count = 0usize;
                 for _ in 0..5 {
-                    let (duration, _) = self.measure(plaintext, &signature);
+                    let (duration, _) = self.measure(plaintext, signature);
                     let zscore = calculate_zscore(&self.measurements, duration);
                     println!(
                         "signature = {:?}, duration = {}, zscore = {}, mean = {}, std_dev = {}",
@@ -220,7 +220,7 @@ where
         // Warm up our stats
         signature[index] = 0;
         for _ in 0..10 {
-            let (duration, _) = self.measure(plaintext, &signature);
+            let (duration, _) = self.measure(plaintext, signature);
             self.measurements.push(duration);
         }
 
@@ -228,7 +228,7 @@ where
         for byte in 0..=255u8 {
             signature[index] = byte;
 
-            let (duration, status) = self.measure(plaintext, &signature);
+            let (duration, status) = self.measure(plaintext, signature);
 
             // We got the correct signature, exit
             if status {
