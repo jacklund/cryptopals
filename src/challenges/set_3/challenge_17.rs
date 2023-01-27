@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::cbc::{cbc_decrypt, cbc_encrypt};
+    use crate::cbc::{cbc_decrypt_without_deserialize, cbc_encrypt};
     use crate::cracking::decrypt_byte_at_a_time;
     use crate::pkcs7::*;
     use crate::util::{generate_iv, generate_key};
@@ -51,7 +51,7 @@ mod tests {
         }
 
         fn validate_pkcs7_padding(&self, iv: &[u8], ciphertext: &[u8]) -> bool {
-            cbc_decrypt(&self.key, iv, ciphertext, self.blocksize)
+            cbc_decrypt_without_deserialize(&self.key, iv, ciphertext, self.blocksize)
                 .pkcs7_deserialize(self.blocksize)
                 .is_ok()
         }

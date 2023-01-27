@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::{
-        cbc::*, dh::DiffieHellman, digest::sha1::SHA1, digest::Digest, pkcs7::Deserialize,
-        util::generate_random_bytes,
+        cbc::*, dh::DiffieHellman, digest::sha1::SHA1, digest::Digest, util::generate_random_bytes,
     };
     use num_bigint::*;
 
@@ -56,10 +55,7 @@ mod tests {
         );
 
         // Ensure that the message decrypts correctly
-        assert_eq!(
-            alice_message.as_bytes(),
-            bob_decrypted.pkcs7_deserialize(BLOCKSIZE).unwrap()
-        );
+        assert_eq!(alice_message.as_bytes(), bob_decrypted,);
 
         // Bob encrypts the decrypted message, adds the IV, and "sends" it to Alice
         let mut bob_encrypted = cbc_encrypt(&bob_cbc_key, &bob_iv, &bob_decrypted, BLOCKSIZE);
@@ -140,10 +136,7 @@ mod tests {
         );
 
         // Ensure that the message decrypts correctly
-        assert_eq!(
-            alice_message.as_bytes(),
-            bob_decrypted.pkcs7_deserialize(BLOCKSIZE).unwrap()
-        );
+        assert_eq!(alice_message.as_bytes(), bob_decrypted,);
 
         // Bob encrypts the decrypted message, adds the IV, and "sends" it to Alice
         let mut bob_encrypted = cbc_encrypt(&bob_cbc_key, &bob_iv, &bob_decrypted, BLOCKSIZE);
@@ -165,9 +158,6 @@ mod tests {
         );
 
         // Ensure that the message decrypts correctly
-        assert_eq!(
-            alice_message.as_bytes(),
-            mallory_decrypted.pkcs7_deserialize(BLOCKSIZE).unwrap()
-        );
+        assert_eq!(alice_message.as_bytes(), mallory_decrypted,);
     }
 }

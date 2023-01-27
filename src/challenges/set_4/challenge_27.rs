@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::cbc::{cbc_decrypt, cbc_encrypt};
+    use crate::cbc::{cbc_decrypt_without_deserialize, cbc_encrypt};
     use crate::util::generate_key;
     use std::collections::HashMap;
 
@@ -32,7 +32,7 @@ mod tests {
 
     // Decrypt our ciphertext
     fn decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8], blocksize: usize) -> Vec<u8> {
-        cbc_decrypt(key, iv, ciphertext, blocksize)
+        cbc_decrypt_without_deserialize(key, iv, ciphertext, blocksize)
     }
 
     #[derive(Debug)]

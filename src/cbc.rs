@@ -1,5 +1,5 @@
 use crate::ecb::{ecb_decrypt, ecb_encrypt_without_padding};
-use crate::pkcs7::Serialize;
+use crate::pkcs7::{Deserialize, Serialize};
 use crate::util::xor;
 
 // CBC mode using ECB
@@ -25,7 +25,12 @@ pub fn cbc_encrypt(key: &[u8], iv: &[u8], plaintext: &[u8], blocksize: usize) ->
 // p = cp ^ d(c)
 // where c is the ciphertext, cp is the previous ciphertext (or iv), p is the plaintext and d is
 // the decryption function
-pub fn cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8], blocksize: usize) -> Vec<u8> {
+pub fn cbc_decrypt_without_deserialize(
+    key: &[u8],
+    iv: &[u8],
+    ciphertext: &[u8],
+    blocksize: usize,
+) -> Vec<u8> {
     let (_, output) = ciphertext.chunks(blocksize).fold(
         (iv.to_vec(), Vec::new()),
         |(prev_ciphertext, mut output), chunk| {
@@ -38,10 +43,19 @@ pub fn cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8], blocksize: usize) -
     output
 }
 
+// CBC mode using ECB
+// p = cp ^ d(c)
+// where c is the ciphertext, cp is the previous ciphertext (or iv), p is the plaintext and d is
+// the decryption function
+pub fn cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8], blocksize: usize) -> Vec<u8> {
+    cbc_decrypt_without_deserialize(key, iv, ciphertext, blocksize)
+        .pkcs7_deserialize(blocksize)
+        .unwrap()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pkcs7::*;
     use crate::util::*;
 
     #[test]
@@ -53,8 +67,6 @@ mod tests {
         assert_eq!(
             plaintext.as_bytes(),
             &cbc_decrypt(key.as_bytes(), &iv, &ciphertext, 16)
-                .pkcs7_deserialize(16)
-                .unwrap(),
         );
     }
 }
