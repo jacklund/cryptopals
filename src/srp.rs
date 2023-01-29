@@ -182,8 +182,11 @@ impl SRPClient {
         let x = hash_to_int(&salt.to_le_bytes(), password.as_bytes());
 
         // Generate a session key
-        let s =
-            (server_public_key - K * G.clone().modpow(&x, &N)).modpow(&(private_key + u * x), &N);
+        let s = match self.public_key.clone() {
+            Some(_) => BigInt::from(0u32),
+            None => (server_public_key - K * G.clone().modpow(&x, &N))
+                .modpow(&(private_key + u * x), &N),
+        };
 
         // Hash the session key
         let shared_key = Sha256::digest(util::get_bytes(&s));
