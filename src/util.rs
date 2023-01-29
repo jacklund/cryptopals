@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
+use num_bigint::*;
 use std::collections::HashMap;
 
 lazy_static! {
@@ -332,6 +333,10 @@ pub fn calculate_zscore(data: &[u128], value: u128) -> Option<f32> {
         }
         _ => None,
     }
+}
+
+pub fn get_bytes(value: &BigInt) -> Vec<u8> {
+    value.to_bytes_le().1
 }
 
 #[cfg(test)]

@@ -1,8 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{
-        cbc::*, dh::DiffieHellman, digest::sha1::SHA1, digest::Digest, util::generate_random_bytes,
-    };
+    use crate::{cbc::*, dh::DiffieHellman, digest::sha1::SHA1, digest::Digest, util};
     use num_bigint::*;
 
     const BLOCKSIZE: usize = 16;
@@ -24,8 +22,10 @@ mod tests {
         // Alice generates a session key, a CBC key using the SHA1 of the session key, and a random
         // IV
         let alice_session = alice.generate_session_key(&bob_public);
-        let alice_cbc_key = &SHA1::new().update(&alice_session.to_bytes_le()).digest()[..BLOCKSIZE];
-        let alice_iv = generate_random_bytes(BLOCKSIZE);
+        let alice_cbc_key = &SHA1::new()
+            .update(&util::get_bytes(&alice_session))
+            .digest()[..BLOCKSIZE];
+        let alice_iv = util::generate_random_bytes(BLOCKSIZE);
 
         // Alice encrypts her message using the CBC key and IV
         let alice_message = "This is my super-secret message!";
@@ -41,7 +41,7 @@ mod tests {
 
         // Bob generates the session key from Alice's public key, and the CBC key
         let bob_session = bob.generate_session_key(&alice_public);
-        let bob_cbc_key = &SHA1::new().update(&bob_session.to_bytes_le()).digest()[..BLOCKSIZE];
+        let bob_cbc_key = &SHA1::new().update(&util::get_bytes(&bob_session)).digest()[..BLOCKSIZE];
 
         // Bob retrieves the IV from the ciphertext
         let bob_iv = &alice_encrypted[alice_encrypted.len() - BLOCKSIZE..];
@@ -88,16 +88,18 @@ mod tests {
         // Alice generates a session key, a CBC key using the SHA1 of the session key, and a random
         // IV
         let alice_session = alice.generate_session_key(&bob_public);
-        let alice_cbc_key = &SHA1::new().update(&alice_session.to_bytes_le()).digest()[..BLOCKSIZE];
-        let alice_iv = generate_random_bytes(BLOCKSIZE);
+        let alice_cbc_key = &SHA1::new()
+            .update(&util::get_bytes(&alice_session))
+            .digest()[..BLOCKSIZE];
+        let alice_iv = util::generate_random_bytes(BLOCKSIZE);
 
         // Alice's session key is now zero, because p raised to the power of anything mod p is
         // always zero
         assert_eq!(
             std::iter::repeat(0u8)
-                .take(alice_session.to_bytes_le().len())
+                .take(util::get_bytes(&alice_session).len())
                 .collect::<Vec<u8>>(),
-            alice_session.to_bytes_le()
+            util::get_bytes(&alice_session),
         );
 
         // Alice encrypts her message using the CBC key and IV
@@ -114,14 +116,14 @@ mod tests {
 
         // Bob generates the session key from Alice's public key, and the CBC key
         let bob_session = bob.generate_session_key(&alice_public);
-        let bob_cbc_key = &SHA1::new().update(&bob_session.to_bytes_le()).digest()[..BLOCKSIZE];
+        let bob_cbc_key = &SHA1::new().update(&util::get_bytes(&bob_session)).digest()[..BLOCKSIZE];
 
         // Bob's session key is now also zero
         assert_eq!(
             std::iter::repeat(0u8)
-                .take(bob_session.to_bytes_le().len())
+                .take(util::get_bytes(&bob_session).len())
                 .collect::<Vec<u8>>(),
-            bob_session.to_bytes_le()
+            util::get_bytes(&bob_session),
         );
 
         // Bob retrieves the IV from the ciphertext
@@ -146,9 +148,10 @@ mod tests {
         assert_eq!(alice_encrypted, bob_encrypted);
 
         // Mallory now decrypts the message, using a zero session key
-        let mallory_session = BigUint::from(0u32);
-        let mallory_cbc_key =
-            &SHA1::new().update(&mallory_session.to_bytes_le()).digest()[..BLOCKSIZE];
+        let mallory_session = BigInt::from(0u32);
+        let mallory_cbc_key = &SHA1::new()
+            .update(&util::get_bytes(&mallory_session))
+            .digest()[..BLOCKSIZE];
         let mallory_iv = &alice_encrypted[alice_encrypted.len() - BLOCKSIZE..];
         let mallory_decrypted = cbc_decrypt(
             &mallory_cbc_key,

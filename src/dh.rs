@@ -4,7 +4,8 @@ use num_bigint::*;
 use rand;
 
 lazy_static! {
-    pub static ref NIST_P: BigUint = BigUint::from_bytes_le(
+    pub static ref NIST_P: BigInt = BigInt::from_bytes_le(
+        Sign::Plus,
         &unhexify(
             "ffffffffffffffffc90fdaa22168c234c4c6628b80dc1cd129024\
             e088a67cc74020bbea63b139b22514a08798e3404ddef9519b3cd\
@@ -17,22 +18,22 @@ lazy_static! {
         )
         .unwrap()
     );
-    pub static ref NIST_G: BigUint = BigUint::from(2u32);
+    pub static ref NIST_G: BigInt = BigInt::from(2u32);
 }
 
 pub struct DiffieHellman {
-    pub p: BigUint,
-    pub g: BigUint,
-    pub private_key: BigUint,
+    pub p: BigInt,
+    pub g: BigInt,
+    pub private_key: BigInt,
 }
 
 impl DiffieHellman {
-    pub fn new(p: BigUint, g: BigUint) -> Self {
+    pub fn new(p: BigInt, g: BigInt) -> Self {
         let mut rng = rand::thread_rng();
         Self {
             p: p.clone(),
             g,
-            private_key: rng.gen_biguint_range(&BigUint::from(0u32), &p),
+            private_key: rng.gen_bigint_range(&BigInt::from(0u32), &p),
         }
     }
 
@@ -41,15 +42,15 @@ impl DiffieHellman {
         Self {
             p: NIST_P.clone(),
             g: NIST_G.clone(),
-            private_key: rng.gen_biguint_range(&BigUint::from(0u32), &NIST_P),
+            private_key: rng.gen_bigint_range(&BigInt::from(0u32), &NIST_P),
         }
     }
 
-    pub fn generate_public_key(&self) -> BigUint {
+    pub fn generate_public_key(&self) -> BigInt {
         self.g.modpow(&self.private_key, &self.p)
     }
 
-    pub fn generate_session_key(&self, public_key: &BigUint) -> BigUint {
+    pub fn generate_session_key(&self, public_key: &BigInt) -> BigInt {
         public_key.modpow(&self.private_key, &self.p)
     }
 }

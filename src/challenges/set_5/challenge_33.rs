@@ -5,8 +5,8 @@ mod tests {
 
     #[test]
     fn challenge_33a() {
-        let alice = DiffieHellman::new(BigUint::from(37u32), BigUint::from(5u32));
-        let bob = DiffieHellman::new(BigUint::from(37u32), BigUint::from(5u32));
+        let alice = DiffieHellman::new(BigInt::from(37u32), BigInt::from(5u32));
+        let bob = DiffieHellman::new(BigInt::from(37u32), BigInt::from(5u32));
         let alice_public = alice.generate_public_key();
         let bob_public = bob.generate_public_key();
         let alice_session = alice.generate_session_key(&bob_public);

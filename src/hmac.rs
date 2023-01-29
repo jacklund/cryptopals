@@ -125,7 +125,6 @@ impl HMacServer {
         let use_insecure = self.use_insecure;
         Iron::new(move |req: &mut Request| handle_request(req, &key, sleep_time_msec, use_insecure))
             .http("localhost:3000")
-            .map_err(|e| e)
     }
 }
 
