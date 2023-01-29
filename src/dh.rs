@@ -4,7 +4,7 @@ use num_bigint::*;
 use rand;
 
 lazy_static! {
-    static ref NIST_P: BigUint = BigUint::from_bytes_le(
+    pub static ref NIST_P: BigUint = BigUint::from_bytes_le(
         &unhexify(
             "ffffffffffffffffc90fdaa22168c234c4c6628b80dc1cd129024\
             e088a67cc74020bbea63b139b22514a08798e3404ddef9519b3cd\
@@ -17,7 +17,7 @@ lazy_static! {
         )
         .unwrap()
     );
-    static ref NIST_G: BigUint = BigUint::from(2u32);
+    pub static ref NIST_G: BigUint = BigUint::from(2u32);
 }
 
 pub struct DiffieHellman {

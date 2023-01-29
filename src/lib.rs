@@ -8,6 +8,7 @@ pub mod ecb;
 pub mod hmac;
 pub mod mt19937;
 pub mod pkcs7;
+pub mod srp;
 pub mod util;
 
 #[cfg(test)]
