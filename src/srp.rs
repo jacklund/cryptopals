@@ -1,5 +1,6 @@
-use crate::{dh, util};
+use crate::util;
 use hmac::{Hmac, Mac};
+use lazy_static::lazy_static;
 use num_bigint::*;
 use rand;
 use sha2::{Digest, Sha256};
@@ -16,6 +17,25 @@ fn hash_to_int(a: &[u8], b: &[u8]) -> BigInt {
 }
 
 const K: u32 = 3;
+
+lazy_static! {
+    // This is just DH NIST_P
+    pub static ref N: BigInt = BigInt::from_bytes_le(
+        Sign::Plus,
+        &util::unhexify(
+            "ffffffffffffffffc90fdaa22168c234c4c6628b80dc1cd129024\
+            e088a67cc74020bbea63b139b22514a08798e3404ddef9519b3cd\
+            3a431b302b0a6df25f14374fe1356d6d51c245e485b576625e7ec\
+            6f44c42e9a637ed6b0bff5cb6f406b7edee386bfb5a899fa5ae9f\
+            24117c4b1fe649286651ece45b3dc2007cb8a163bf0598da48361\
+            c55d39a69163fa8fd24cf5f83655d23dca3ad961c62f356208552\
+            bb9ed529077096966d670c354e4abc9804f1746c08ca237327fff\
+            fffffffffffff"
+        )
+        .unwrap()
+    );
+    pub static ref G: BigInt = BigInt::from(2u32);
+}
 
 pub struct SRPServer {
     users: HashMap<String, String>,
@@ -47,7 +67,7 @@ impl SRPServer {
 
 fn generate_verifier(salt: u32, password: &str) -> BigInt {
     let x = hash_to_int(&salt.to_le_bytes(), password.as_bytes());
-    dh::NIST_G.modpow(&x, &dh::NIST_P)
+    G.modpow(&x, &N)
 }
 
 pub struct SRPServerSession {
@@ -62,14 +82,14 @@ pub struct SRPServerSession {
 impl SRPServerSession {
     pub fn new(password: &str, client_public_key: &BigInt) -> Self {
         // Generate a random private key
-        let private_key = rand::thread_rng().gen_bigint_range(&BigInt::from(0u32), &dh::NIST_P);
+        let private_key = rand::thread_rng().gen_bigint_range(&BigInt::from(0u32), &N);
 
         let salt = rand::random::<u32>();
 
         let verifier = generate_verifier(salt, password);
 
         // Generate a public key from the password DH key and the private key
-        let public_key = K * verifier.clone() + dh::NIST_G.modpow(&private_key, &dh::NIST_P);
+        let public_key = K * verifier.clone() + G.modpow(&private_key, &N);
 
         let u = hash_to_int(
             &util::get_bytes(client_public_key),
@@ -91,8 +111,8 @@ impl SRPServerSession {
     }
 
     pub fn authenticate(&self, hmac_of_shared_key: &[u8]) -> bool {
-        let s = (self.client_public_key.clone() * self.verifier.modpow(&self.u, &dh::NIST_P))
-            .modpow(&self.private_key, &dh::NIST_P);
+        let s = (self.client_public_key.clone() * self.verifier.modpow(&self.u, &N))
+            .modpow(&self.private_key, &N);
         let shared_key = Sha256::digest(util::get_bytes(&s));
         let hmac = HmacSha256::new_from_slice(shared_key.as_slice())
             .unwrap()
@@ -134,11 +154,11 @@ impl SRPClient {
 
     pub fn authenticate(&mut self, user: &str, password: &str) -> bool {
         // Generate a random private key
-        let private_key = rand::thread_rng().gen_bigint_range(&BigInt::from(0u32), &dh::NIST_P);
+        let private_key = rand::thread_rng().gen_bigint_range(&BigInt::from(0u32), &N);
 
         // Generate a DH public key from the private key
         let public_key = match self.public_key.clone() {
-            None => dh::NIST_G.modpow(&private_key, &dh::NIST_P),
+            None => G.modpow(&private_key, &N),
             Some(public_key) => public_key,
         };
 
@@ -162,8 +182,8 @@ impl SRPClient {
         let x = hash_to_int(&salt.to_le_bytes(), password.as_bytes());
 
         // Generate a session key
-        let s = (server_public_key - K * dh::NIST_G.clone().modpow(&x, &dh::NIST_P))
-            .modpow(&(private_key + u * x), &dh::NIST_P);
+        let s =
+            (server_public_key - K * G.clone().modpow(&x, &N)).modpow(&(private_key + u * x), &N);
 
         // Hash the session key
         let shared_key = Sha256::digest(util::get_bytes(&s));
