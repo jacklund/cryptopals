@@ -8,6 +8,8 @@ pub mod ecb;
 pub mod hmac;
 pub mod mt19937;
 pub mod pkcs7;
+#[allow(non_snake_case)]
+#[allow(non_upper_case_globals)]
 pub mod srp;
 pub mod util;
 

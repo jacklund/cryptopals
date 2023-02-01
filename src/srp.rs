@@ -8,15 +8,23 @@ use std::collections::HashMap;
 
 type HmacSha256 = Hmac<Sha256>;
 
-fn hash_to_int(a: &[u8], b: &[u8]) -> BigInt {
+// Generate an HMAC from a key and a value
+pub fn generate_hmac(key: &[u8], value: &[u8]) -> Vec<u8> {
+    let mut hmac = HmacSha256::new_from_slice(key).unwrap();
+    hmac.update(value);
+    hmac.finalize().into_bytes().to_vec()
+}
+
+// Convert a SHA256 hash to a BigInt
+pub fn hash_to_int(a: &[u8], b: &[u8]) -> BigInt {
     let mut hasher = Sha256::new();
     hasher.update(a);
     hasher.update(b);
     let xh = hasher.finalize();
-    BigInt::from_bytes_le(Sign::NoSign, &xh)
+    BigInt::from_bytes_le(Sign::Plus, &xh.to_vec())
 }
 
-const K: u32 = 3;
+const k: u32 = 3;
 
 lazy_static! {
     // This is just DH NIST_P
@@ -34,169 +42,247 @@ lazy_static! {
         )
         .unwrap()
     );
-    pub static ref G: BigInt = BigInt::from(2u32);
+    pub static ref g: BigInt = BigInt::from(2u32);
 }
 
+// Trait for a server that creates a session
+// Need this abstraction for the MITM server in challenge 38
+pub trait SRPSessionServer<T>
+where
+    T: SRPSession,
+{
+    fn start_session(&mut self, user: &str, public_key: &BigInt) -> T;
+}
+
+// Trait for the session
+pub trait SRPSession {
+    fn start_authentication(&self) -> (Vec<u8>, BigInt);
+
+    // Only for simplified
+    fn get_u(&mut self) -> BigInt;
+
+    fn authenticate(&mut self, hmac_of_shared_key: &[u8]) -> bool;
+}
+
+// NOTE: Rather than creating an actual "server" that listens on a port, etc, I simulate it here
+// using a server struct and a client struct, where the client class calls into the server class to
+// "connect", gets the session object, and then does the authentication dance with that object.
 pub struct SRPServer {
     users: HashMap<String, String>,
+    simplified: bool,
 }
 
+// Clippy made me do it
 impl Default for SRPServer {
     fn default() -> Self {
         Self::new()
     }
 }
 
+// SRP Server
 impl SRPServer {
+    // "Standard" server
     pub fn new() -> Self {
         Self {
             users: HashMap::new(),
+            simplified: false,
+        }
+    }
+
+    // Server for "simplified" SRP
+    pub fn simplified() -> Self {
+        Self {
+            users: HashMap::new(),
+            simplified: true,
         }
     }
 
     pub fn add_user(&mut self, user: &str, password: &str) {
         self.users.insert(user.to_string(), password.to_string());
     }
+}
 
-    pub fn start_session(&self, user: &str, public_key: &BigInt) -> Option<SRPServerSession> {
+impl SRPSessionServer<SRPServerSession> for SRPServer {
+    fn start_session(&mut self, user: &str, A: &BigInt) -> SRPServerSession {
         self.users
             .get(user)
-            .map(|password| SRPServerSession::new(password, public_key))
+            .map(|password| SRPServerSession::new(password, A, self.simplified))
+            .unwrap()
     }
 }
 
-fn generate_verifier(salt: u32, password: &str) -> BigInt {
-    let x = hash_to_int(&salt.to_le_bytes(), password.as_bytes());
-    G.modpow(&x, &N)
+// Generate our v value
+fn generate_verifier(salt: &[u8], password: &str) -> BigInt {
+    let x = hash_to_int(salt, password.as_bytes());
+    g.modpow(&x, &N)
 }
 
+// Server session for SRP
 pub struct SRPServerSession {
-    salt: u32,
-    private_key: BigInt,
-    public_key: BigInt,
-    client_public_key: BigInt,
+    salt: Vec<u8>,
+    b: BigInt,
+    B: BigInt,
+    A: BigInt,
     verifier: BigInt,
     u: BigInt,
 }
 
+// Create the server session by passing in the password, client public key, and whether we're using
+// the standard or simplified SRP
 impl SRPServerSession {
-    pub fn new(password: &str, client_public_key: &BigInt) -> Self {
+    pub fn new(password: &str, A: &BigInt, simplified: bool) -> Self {
         // Generate a random private key
-        let private_key = rand::thread_rng().gen_bigint_range(&BigInt::from(0u32), &N);
+        let b = rand::thread_rng().gen_bigint_range(&BigInt::from(0u32), &N);
 
-        let salt = rand::random::<u32>();
+        let salt = rand::random::<u32>().to_le_bytes();
 
-        let verifier = generate_verifier(salt, password);
+        let verifier = generate_verifier(&salt, password);
 
         // Generate a public key from the password DH key and the private key
-        let public_key = K * verifier.clone() + G.modpow(&private_key, &N);
+        let B = if simplified {
+            // Simplified SRP - server public key doesn't depend on password
+            //  B = g ^ b % N
+            g.modpow(&b, &N)
+        } else {
+            // Standard SRP
+            //  B = k * v + g ^ b % N
+            k * verifier.clone() + g.modpow(&b, &N)
+        };
 
-        let u = hash_to_int(
-            &util::get_bytes(client_public_key),
-            &util::get_bytes(&public_key),
-        );
+        let u = if simplified {
+            // Generate our u value as a random number for simplified SRP
+            // This needs to be positive, because it'll be used as an exponent
+            rand::thread_rng().gen_biguint(16).to_bigint().unwrap()
+        } else {
+            // Hash the client and server public keys together for "standard" SRP
+            hash_to_int(&util::get_bytes(A), &util::get_bytes(&B))
+        };
 
         Self {
-            salt,
-            private_key,
-            public_key,
-            client_public_key: client_public_key.clone(),
+            salt: salt.to_vec(),
+            b,
+            B,
+            A: A.clone(),
             verifier,
             u,
         }
     }
+}
 
-    pub fn start_authentication(&self) -> (u32, BigInt) {
-        (self.salt, self.public_key.clone())
+impl SRPSession for SRPServerSession {
+    fn start_authentication(&self) -> (Vec<u8>, BigInt) {
+        (self.salt.clone(), self.B.clone())
     }
 
-    pub fn authenticate(&self, hmac_of_shared_key: &[u8]) -> bool {
-        let s = (self.client_public_key.clone() * self.verifier.modpow(&self.u, &N))
-            .modpow(&self.private_key, &N);
-        let shared_key = Sha256::digest(util::get_bytes(&s));
-        let hmac = HmacSha256::new_from_slice(shared_key.as_slice())
-            .unwrap()
-            .finalize()
-            .into_bytes();
+    // In simplified SRP, the client gets the u value from the server along with the salt and B.
+    // Client will call this separately in simplified SRP after calling start_authentication()
+    fn get_u(&mut self) -> BigInt {
+        self.u.clone()
+    }
 
-        println!("Server: {:?}", hmac.as_slice());
-        println!("Client: {:?}", hmac_of_shared_key);
+    // Authenticate by generating the HMAC of the shared key, and comparing
+    fn authenticate(&mut self, hmac_of_shared_key: &[u8]) -> bool {
+        //  S = (A * (v ^ u % N)) ^ b % N
+        let S = (self.A.clone() * self.verifier.modpow(&self.u, &N)).modpow(&self.b, &N);
+
+        // Shared key, which is the SHA256 hash of S
+        let K = Sha256::digest(util::get_bytes(&S));
+
+        // Generate the HMAC from K and the salt
+        let hmac = generate_hmac(K.as_slice(), self.salt.as_slice());
+
+        // Compare the HMACs
         hmac.as_slice() == hmac_of_shared_key
     }
 }
 
-pub struct SRPClient {
-    server: Option<SRPServer>,
-    public_key: Option<BigInt>,
+pub struct SRPClient<T, U>
+where
+    T: SRPSessionServer<U>,
+    U: SRPSession,
+{
+    server: T,
+    session: Option<U>,
+    A: Option<BigInt>,
+    simplified: bool,
 }
 
-impl Default for SRPClient {
-    fn default() -> Self {
-        Self::new()
+impl<T, U> SRPClient<T, U>
+where
+    T: SRPSessionServer<U>,
+    U: SRPSession,
+{
+    pub fn use_public_key(&mut self, public_key: BigInt) {
+        self.A = Some(public_key);
     }
-}
 
-impl SRPClient {
-    pub fn new() -> Self {
+    pub fn connect(server: T, simplified: bool) -> Self {
         Self {
-            server: None,
-            public_key: None,
+            server,
+            session: None,
+            A: None,
+            simplified,
         }
     }
 
-    pub fn use_public_key(&mut self, public_key: BigInt) {
-        self.public_key = Some(public_key);
-    }
-
-    pub fn connect(&mut self, server: SRPServer) {
-        self.server = Some(server);
+    pub fn get_session(&mut self) -> U {
+        self.session.take().unwrap()
     }
 
     pub fn authenticate(&mut self, user: &str, password: &str) -> bool {
         // Generate a random private key
-        let private_key = rand::thread_rng().gen_bigint_range(&BigInt::from(0u32), &N);
+        let a = rand::thread_rng().gen_bigint_range(&BigInt::from(0u32), &N);
 
         // Generate a DH public key from the private key
-        let public_key = match self.public_key.clone() {
-            None => G.modpow(&private_key, &N),
-            Some(public_key) => public_key,
+        let A = match self.A.clone() {
+            Some(A) => A,
+            None => g.modpow(&a, &N),
         };
 
-        let session = self
-            .server
-            .as_ref()
-            .unwrap()
-            .start_session(user, &public_key)
-            .unwrap();
+        // Send our username and public key
+        let mut session = self.server.start_session(user, &A);
 
-        // Send our public key, and get the salt and the server's public key
-        let (salt, server_public_key) = session.start_authentication();
+        // Get the salt and the server's public key
+        let (salt, B) = session.start_authentication();
 
-        // Hash both public keys together
-        let u = hash_to_int(
-            &util::get_bytes(&public_key),
-            &util::get_bytes(&server_public_key),
-        );
+        // Get our u value
+        let u = if self.simplified {
+            // In simplified SRP, the server passes this to us along with the salt and B. Here, we
+            // have to do a separate call to get it
+            session.get_u()
+        } else {
+            // Hash both public keys together
+            hash_to_int(&util::get_bytes(&A), &util::get_bytes(&B))
+        };
 
         // Hash the salt and the password together
-        let x = hash_to_int(&salt.to_le_bytes(), password.as_bytes());
+        let x = hash_to_int(&salt, password.as_bytes());
 
-        // Generate a session key
-        let s = match self.public_key.clone() {
+        // Generate S
+        let S = match self.A.clone() {
+            // In the case where we send back a bogus value for A, we have to set S to zero for the
+            // auth to happen
             Some(_) => BigInt::from(0u32),
-            None => (server_public_key - K * G.clone().modpow(&x, &N))
-                .modpow(&(private_key + u * x), &N),
+
+            None => {
+                if self.simplified {
+                    // Simplified, S = B ^ (a + ux) % N
+                    B.modpow(&(a + u * x), &N)
+                } else {
+                    // Standard, S = (B - k * g ^ x) ^ (a + ux) % N
+                    (B - k * g.clone().modpow(&x, &N)).modpow(&(a + u * x), &N)
+                }
+            }
         };
 
-        // Hash the session key
-        let shared_key = Sha256::digest(util::get_bytes(&s));
+        // Hash S to get the shared key
+        let K = Sha256::digest(util::get_bytes(&S));
 
-        // Hmac the salt with the session key
-        let hmac = HmacSha256::new_from_slice(shared_key.as_slice())
-            .unwrap()
-            .finalize()
-            .into_bytes();
+        // Hmac the salt with the shared key
+        let hmac = generate_hmac(K.as_slice(), salt.as_slice());
 
-        session.authenticate(hmac.as_slice())
+        let result = session.authenticate(&hmac);
+        self.session = Some(session);
+        result
     }
 }
