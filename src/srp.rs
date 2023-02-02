@@ -1,6 +1,7 @@
 use crate::util;
 use hmac::{Hmac, Mac};
 use lazy_static::lazy_static;
+use num::Zero;
 use num_bigint::*;
 use rand;
 use sha2::{Digest, Sha256};
@@ -132,7 +133,7 @@ pub struct SRPServerSession {
 impl SRPServerSession {
     pub fn new(password: &str, A: &BigInt, simplified: bool) -> Self {
         // Generate a random private key
-        let b = rand::thread_rng().gen_bigint_range(&BigInt::from(0u32), &N);
+        let b = rand::thread_rng().gen_bigint_range(&BigInt::zero(), &N);
 
         let salt = rand::random::<u32>().to_le_bytes();
 
@@ -231,7 +232,7 @@ where
 
     pub fn authenticate(&mut self, user: &str, password: &str) -> bool {
         // Generate a random private key
-        let a = rand::thread_rng().gen_bigint_range(&BigInt::from(0u32), &N);
+        let a = rand::thread_rng().gen_bigint_range(&BigInt::zero(), &N);
 
         // Generate a DH public key from the private key
         let A = match self.A.clone() {
@@ -262,7 +263,7 @@ where
         let S = match self.A.clone() {
             // In the case where we send back a bogus value for A, we have to set S to zero for the
             // auth to happen
-            Some(_) => BigInt::from(0u32),
+            Some(_) => BigInt::zero(),
 
             None => {
                 if self.simplified {
