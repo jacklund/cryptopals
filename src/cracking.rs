@@ -61,6 +61,7 @@ pub fn find_single_byte_key(ciphertext: &[u8]) -> (u8, usize, String) {
     )
 }
 
+#[allow(clippy::type_complexity)]
 pub fn break_repeating_key_xor(ciphertext: &[u8]) -> (Vec<u8>, Vec<u8>) {
     // Iterate through various keysizes, chunking the ciphertext into keysize chunks,
     // and find the least average distance between the even and odd chunks
@@ -125,6 +126,7 @@ pub fn break_repeating_key_xor(ciphertext: &[u8]) -> (Vec<u8>, Vec<u8>) {
     (key, plaintext)
 }
 
+#[allow(clippy::clone_double_ref)]
 // Break CTR where the same nonce is used
 // This basically becomes the Vignere case, where we break the keystream byte by byte
 pub fn break_ctr(ciphertexts: &[Vec<u8>]) -> Vec<u8> {
@@ -288,6 +290,7 @@ fn decrypt_block_byte_at_a_time<F: Fn(&[u8], &[u8]) -> bool>(
     solution
 }
 
+#[allow(clippy::clone_double_ref)]
 pub fn decrypt_byte_at_a_time<F: Fn(&[u8], &[u8]) -> bool>(
     iv: &[u8],
     ciphertext: &[u8],

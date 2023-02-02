@@ -22,7 +22,7 @@ pub fn hash_to_int(a: &[u8], b: &[u8]) -> BigInt {
     hasher.update(a);
     hasher.update(b);
     let xh = hasher.finalize();
-    BigInt::from_bytes_le(Sign::Plus, &xh.to_vec())
+    BigInt::from_bytes_le(Sign::Plus, &xh)
 }
 
 const k: u32 = 3;
