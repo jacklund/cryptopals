@@ -6,3 +6,4 @@ mod challenge_37;
 #[allow(non_snake_case)]
 mod challenge_38;
 mod challenge_39;
+mod challenge_40;

@@ -6,8 +6,8 @@ use rand;
 
 #[derive(Debug)]
 pub struct RSAKey {
-    modulus: BigInt,
-    exponent: BigInt,
+    pub modulus: BigInt,
+    pub exponent: BigInt,
 }
 
 type RSAPublicKey = RSAKey;
