@@ -10,7 +10,7 @@ mod tests {
 
         // Set the bitlength of the keys. Interestingly, this whole thing doesn't work if the bit
         // length is less than, say, 128
-        let bits = 128;
+        let bits = 256;
 
         // Generate 3 public keys
         let (_, pubkey_0) = generate_keypair(bits);

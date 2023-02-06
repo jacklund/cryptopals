@@ -40,7 +40,7 @@ pub fn generate_keypair(bit_size: usize) -> (RSAPrivateKey, RSAPublicKey) {
             continue;
         }
 
-        return (RSAKey::new(&n, &d.unwrap()), RSAKey::new(&n, &e.into()));
+        return (RSAKey::new(&n, &d.unwrap()), RSAKey::new(&n, &e));
     }
 }
 
