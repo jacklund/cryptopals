@@ -1,4 +1,7 @@
 use super::Digest;
+use asn1::{oid, ObjectIdentifier};
+
+const MD4_OID: ObjectIdentifier = oid!(1, 2, 840, 113549, 2, 3);
 
 const A: u32 = u32::from_be(0x01234567);
 const B: u32 = u32::from_be(0x89abcdef);
@@ -144,6 +147,7 @@ impl MD4 {
 impl Digest for MD4 {
     const BLOCKSIZE: usize = 64;
     const OUTPUT_SIZE: usize = 16;
+    const OID: ObjectIdentifier = MD4_OID;
 
     fn new() -> Self {
         Self {

@@ -1,4 +1,7 @@
 use super::Digest;
+use asn1::{oid, ObjectIdentifier};
+
+const SHA1_OID: ObjectIdentifier = oid!(1, 3, 14, 3, 2, 26);
 
 pub struct SHA1 {
     h0: u32,
@@ -40,6 +43,7 @@ fn add32(a: u32, b: u32) -> u32 {
 impl Digest for SHA1 {
     const BLOCKSIZE: usize = 64;
     const OUTPUT_SIZE: usize = 20;
+    const OID: ObjectIdentifier = SHA1_OID;
 
     fn new() -> Self {
         SHA1::new_with_init(0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0)

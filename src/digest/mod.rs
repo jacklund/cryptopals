@@ -1,9 +1,13 @@
 pub mod md4;
 pub mod sha1;
+pub mod sha256;
+
+use asn1::ObjectIdentifier;
 
 pub trait Digest {
     const BLOCKSIZE: usize;
     const OUTPUT_SIZE: usize;
+    const OID: ObjectIdentifier;
 
     fn new() -> Self;
 

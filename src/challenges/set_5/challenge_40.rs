@@ -18,9 +18,9 @@ mod tests {
         let (_, pubkey_2) = generate_keypair(bits);
 
         // Generate 3 ciphertexts from the public keys and the single plaintext
-        let c0 = BigUint::from_bytes_le(&encrypt(&pubkey_0, plaintext));
-        let c1 = BigUint::from_bytes_le(&encrypt(&pubkey_1, plaintext));
-        let c2 = BigUint::from_bytes_le(&encrypt(&pubkey_2, plaintext));
+        let c0 = BigUint::from_bytes_be(&encrypt_without_padding(&pubkey_0, plaintext).unwrap());
+        let c1 = BigUint::from_bytes_be(&encrypt_without_padding(&pubkey_1, plaintext).unwrap());
+        let c2 = BigUint::from_bytes_be(&encrypt_without_padding(&pubkey_2, plaintext).unwrap());
 
         // Grab the moduli for the public keys
         let n0 = pubkey_0.modulus.to_biguint().unwrap();
@@ -38,7 +38,7 @@ mod tests {
             + c1 * ms1.clone() * ms1.clone().invm(&n1.clone()).unwrap()
             + c2 * ms2.clone() * ms2.clone().invm(&n2.clone()).unwrap();
 
-        let decrypted = (result % n012.clone()).cbrt().to_bytes_le();
+        let decrypted = (result % n012.clone()).cbrt().to_bytes_be();
         assert_eq!(plaintext, decrypted);
     }
 }
