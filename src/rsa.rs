@@ -280,6 +280,9 @@ where
     decrypt_without_padding(key, &padded)
 }
 
+// The broken verify algoritm needed for Challenge 42 (Bleichenbacher's attack)
+// Surprisingly difficult, because the asn1 library does the right thing and fails the parse if
+// there's extra garbage at the end. I had to isolate just the "asn.1" part, and validate that.
 pub fn bad_verify<T>(key: &PublicKey, message: &[u8], signature: &[u8]) -> bool
 where
     T: Digest,
