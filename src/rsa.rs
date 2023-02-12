@@ -23,13 +23,13 @@ enum OperationType {
 }
 
 #[derive(Asn1Read, Asn1Write, Debug)]
-struct DigestInfo<'a> {
+pub struct DigestInfo<'a> {
     digest_algorithm: ObjectIdentifier,
     digest: &'a [u8],
 }
 
 impl<'a> DigestInfo<'a> {
-    fn new(oid: ObjectIdentifier, digest: &'a [u8]) -> Self {
+    pub fn new(oid: ObjectIdentifier, digest: &'a [u8]) -> Self {
         Self {
             digest_algorithm: oid,
             digest,
@@ -182,7 +182,7 @@ fn unpad(operation_type: OperationType, data: &[u8]) -> Result<Vec<u8>> {
                     }
                 }
             }
-            Ok(data.iter().map(|b| *b).collect())
+            Ok(data.iter().copied().collect())
         }
         OperationType::Signature => {
             match data.pop_front() {
@@ -202,7 +202,7 @@ fn unpad(operation_type: OperationType, data: &[u8]) -> Result<Vec<u8>> {
                     }
                 }
             }
-            Ok(data.iter().map(|b| *b).collect())
+            Ok(data.iter().copied().collect())
         }
     }
 }
@@ -210,7 +210,7 @@ fn unpad(operation_type: OperationType, data: &[u8]) -> Result<Vec<u8>> {
 // Left pad our data with zeroes. When we encrypt/decrypt byte streams, the leading bytes might be
 // zeroes, which will get lost when the bytes get converted to BigUint, so we pad out to the left
 // to compensate
-fn left_pad(data: &[u8], length: usize) -> Result<Vec<u8>> {
+pub fn left_pad(data: &[u8], length: usize) -> Result<Vec<u8>> {
     if data.len() > length {
         Err(Error::msg("Invalid padding length"))
     } else {
@@ -238,10 +238,10 @@ pub fn encrypt_without_padding(key: &PublicKey, plaintext: &[u8]) -> Result<Vec<
 
 // Encrypt with the padding
 pub fn encrypt(key: &PublicKey, plaintext: &[u8]) -> Result<Vec<u8>> {
-    Ok(encrypt_without_padding(
+    encrypt_without_padding(
         key,
         &pad(OperationType::Encryption, key.byte_length(), plaintext)?,
-    )?)
+    )
 }
 
 // Decrypt without the padding
@@ -277,7 +277,52 @@ where
     let asn_1 = asn1::write_single(&DigestInfo::new(T::OID, &hash)).unwrap();
     let padded = pad(OperationType::Signature, key.byte_length(), &asn_1)?;
     println!("Padded signature = {:?}", padded);
-    Ok(decrypt_without_padding(&key, &padded)?)
+    decrypt_without_padding(key, &padded)
+}
+
+pub fn bad_verify<T>(key: &PublicKey, message: &[u8], signature: &[u8]) -> bool
+where
+    T: Digest,
+{
+    let signature_bytes = match encrypt_without_padding(key, signature) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            println!("Got error from encrypt: {}", error);
+            return false;
+        }
+    };
+    println!("signature bytes = {:?}", signature_bytes);
+    let unpadded = match unpad(OperationType::Signature, &signature_bytes) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            println!("Got error from unpad: {}", error);
+            return false;
+        }
+    };
+    let digest_len = unpadded[1] as usize + 2;
+    let digest_info = match asn1::parse_single::<DigestInfo>(&unpadded[..digest_len]) {
+        Ok(info) => info,
+        Err(error) => {
+            println!("Error parsing asn1: {}", error);
+            return false;
+        }
+    };
+    println!("Digest info = {:?}", digest_info);
+
+    if digest_info.digest_algorithm != T::OID {
+        println!(
+            "Got the wrong digest algorithm {}, was expecting {}",
+            digest_info.digest_algorithm,
+            T::OID
+        );
+        return false;
+    }
+    let mut hasher = T::new();
+    hasher.update(message);
+    let hash = hasher.digest().to_vec();
+    println!("Hash = {:?}", hash);
+    println!("digest = {:?}", digest_info.digest);
+    hash == digest_info.digest
 }
 
 pub fn verify<T>(key: &PublicKey, message: &[u8], signature: &[u8]) -> bool
@@ -301,7 +346,10 @@ where
     };
     let digest_info = match asn1::parse_single::<DigestInfo>(&unpadded) {
         Ok(info) => info,
-        Err(_) => return false,
+        Err(error) => {
+            println!("Error parsing asn1: {}", error);
+            return false;
+        }
     };
     println!("Digest info = {:?}", digest_info);
 
