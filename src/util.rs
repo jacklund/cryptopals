@@ -157,7 +157,12 @@ pub fn hexify(value: &[u8]) -> String {
 }
 
 pub fn unhexify(hex: &str) -> Result<Vec<u8>> {
-    hex.to_lowercase()
+    let mut hex_string = hex.to_string();
+    if hex.len() % 2 == 1 {
+        hex_string.insert(0, '0');
+    }
+    hex_string
+        .to_lowercase()
         .chars()
         .collect::<Vec<char>>()
         .chunks(2)

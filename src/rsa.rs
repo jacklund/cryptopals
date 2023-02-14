@@ -368,7 +368,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::digest::sha256::Sha256;
+    use crate::digest::sha256::SHA256;
     use num_modular::ModularUnaryOps;
 
     #[test]
@@ -400,7 +400,7 @@ mod tests {
 
         // Sign
         let data = b"hello world";
-        let signature = sign::<Sha256>(&private_key, data).unwrap();
-        assert!(verify::<Sha256>(&public_key, data, &signature));
+        let signature = sign::<SHA256>(&private_key, data).unwrap();
+        assert!(verify::<SHA256>(&public_key, data, &signature));
     }
 }

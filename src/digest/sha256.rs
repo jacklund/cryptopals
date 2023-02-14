@@ -4,11 +4,11 @@ use sha2::{self, Digest};
 
 const SHA256_OID: ObjectIdentifier = oid!(2, 16, 840, 1, 101, 3, 4, 2, 1);
 
-pub struct Sha256 {
+pub struct SHA256 {
     digest: sha2::Sha256,
 }
 
-impl MyDigest for Sha256 {
+impl MyDigest for SHA256 {
     const BLOCKSIZE: usize = 64;
     const OUTPUT_SIZE: usize = 32;
     const OID: ObjectIdentifier = SHA256_OID;

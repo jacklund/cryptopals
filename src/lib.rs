@@ -4,6 +4,7 @@ pub mod cracking;
 pub mod ctr;
 pub mod dh;
 pub mod digest;
+pub mod dsa;
 pub mod ecb;
 pub mod hmac;
 pub mod mt19937;

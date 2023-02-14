@@ -126,6 +126,10 @@ impl Digest for SHA1 {
     }
 }
 
+pub fn sha1(message: &[u8]) -> Vec<u8> {
+    SHA1::new().update(message).digest()
+}
+
 pub fn sha1_mac(key: &[u8], message: &[u8]) -> Vec<u8> {
     let mut value = key.to_vec();
     value.extend(message);

@@ -16,9 +16,7 @@ mod tests {
 
         // Hash the message
         let plaintext = "hi mom".as_bytes();
-        let mut hasher = SHA1::new();
-        hasher.update(plaintext);
-        let hash = hasher.digest().to_vec();
+        let hash = sha1(plaintext).to_vec();
 
         // Generate the ASN.1
         let asn_1 = asn1::write_single(&DigestInfo::new(SHA1::OID, &hash)).unwrap();
