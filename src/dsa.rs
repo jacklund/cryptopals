@@ -31,17 +31,21 @@ impl PrivateKey {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Signature {
     pub r: BigUint,
     pub s: BigUint,
+    pub message: String,
+    pub hash: BigUint,
 }
 
 impl Signature {
-    pub fn new(r: &BigUint, s: &BigUint) -> Self {
+    pub fn new(r: &BigUint, s: &BigUint, message: &str, hash: &BigUint) -> Self {
         Self {
             r: r.clone(),
             s: s.clone(),
+            message: message.to_string(),
+            hash: hash.clone(),
         }
     }
 }
@@ -85,7 +89,7 @@ impl DSA {
         BigUint::from_bytes_be(truncated_hash)
     }
 
-    pub fn sign<D>(&self, key: &PrivateKey, message: &[u8]) -> Signature
+    pub fn sign<D>(&self, key: &PrivateKey, message: &str) -> Signature
     where
         D: Digest,
     {
@@ -93,7 +97,7 @@ impl DSA {
         let mut s: BigUint;
         let mut k: BigUint;
 
-        let hash = self.hash_message::<D>(message);
+        let hash = self.hash_message::<D>(message.as_bytes());
         loop {
             k = rand::thread_rng()
                 .gen_biguint_range(&BigUint::one(), &(self.q.clone() - BigUint::one()));
@@ -108,10 +112,10 @@ impl DSA {
             }
         }
 
-        Signature::new(&r, &s)
+        Signature::new(&r, &s, message, &hash)
     }
 
-    pub fn verify<D>(&self, key: &PublicKey, message: &[u8], signature: &Signature) -> bool
+    pub fn verify<D>(&self, key: &PublicKey, message: &str, signature: &Signature) -> bool
     where
         D: Digest,
     {
@@ -119,7 +123,7 @@ impl DSA {
             return false;
         }
 
-        let hash = self.hash_message::<D>(message);
+        let hash = self.hash_message::<D>(message.as_bytes());
 
         let w = signature.s.clone().invm(&self.q).unwrap();
 
@@ -131,4 +135,29 @@ impl DSA {
 
         v == signature.r
     }
+}
+
+// Retrieve the public and private keys from the k value
+pub fn get_keys_from_k(
+    &Signature {
+        ref r,
+        ref s,
+        message: _,
+        ref hash,
+    }: &Signature,
+    k: &BigUint,
+    p: &BigUint,
+    q: &BigUint,
+    g: &BigUint,
+) -> Option<(PrivateKey, PublicKey)> {
+    // Because of how we calculate s, s * k has to be > hash for any valid
+    // values of k, so we ignore any where this isn't true (also makes the math easier
+    if (s * k) < *hash {
+        return None;
+    }
+
+    // Calculate the keys
+    let x = (((s * k) - hash) * r.invm(q).unwrap()) % q.clone();
+    let y = g.modpow(&x, p);
+    Some((PrivateKey::new(x), PublicKey::new(y)))
 }

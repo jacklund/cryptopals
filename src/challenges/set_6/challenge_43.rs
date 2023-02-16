@@ -1,12 +1,11 @@
 #[cfg(test)]
 mod tests {
-    use crate::digest::{sha1::*, Digest};
+    use crate::digest::sha1::*;
     use crate::dsa::*;
     use crate::util::{hexify, unhexify};
     use lazy_static::lazy_static;
-    use num::{Num, One, Zero};
+    use num::Num;
     use num_bigint::*;
-    use num_modular::ModularUnaryOps;
 
     lazy_static! {
         static ref p: BigUint = BigUint::from_bytes_be(
@@ -37,28 +36,11 @@ mod tests {
 
     #[test]
     fn test_dsa_signature() {
-        let message = "This is a test".as_bytes();
+        let message = "This is a test";
         let dsa = DSA::new(&p, &q, &g);
         let (privkey, pubkey) = dsa.generate_keypair();
         let signature = dsa.sign::<SHA1>(&privkey, message);
         assert!(dsa.verify::<SHA1>(&pubkey, message, &signature));
-    }
-
-    fn get_keys_from_k(
-        &Signature { ref r, ref s }: &Signature,
-        k: &BigUint,
-        hash: &BigUint,
-    ) -> Option<(PrivateKey, PublicKey)> {
-        // Because of how we calculate s, s * k has to be > hash for any valid
-        // values of k, so we ignore any where this isn't true (also makes the math easier
-        if (s * k) < *hash {
-            return None;
-        }
-
-        // Calculate the keys
-        let x = (((s * k) - hash) * r.invm(&q).unwrap()) % q.clone();
-        let y = g.modpow(&x, &p);
-        Some((PrivateKey::new(x), PublicKey::new(y)))
     }
 
     #[test]
@@ -74,27 +56,28 @@ mod tests {
             )
             .unwrap(),
         ));
-        let message = b"For those that envy a MC it can be hazardous to your health\n\
+        let message = "For those that envy a MC it can be hazardous to your health\n\
                         So be friendly, a matter of life and death, just like a etch-a-sketch\n";
         let r = BigUint::from_str_radix("548099063082341131477253921760299949438196259240", 10)
             .unwrap();
         let s = BigUint::from_str_radix("857042759984254168557880549501802188789837994940", 10)
             .unwrap();
-        let signature = Signature::new(&r, &s);
 
         // Calculate the hash
-        let hash = sha1(message);
+        let hash = sha1(message.as_bytes());
         assert_eq!(
             unhexify("d2d0714f014a9784047eaeccf956520045c45265").unwrap(),
             hash,
         );
         let hash_int = BigUint::from_bytes_be(&hash);
 
+        let signature = Signature::new(&r, &s, message, &hash_int);
+
         // Find the keys
         let max: u32 = 2u32.pow(16);
         let (private, _) = (1..max)
             .find_map(
-                |k| match get_keys_from_k(&signature, &BigUint::from(k), &hash_int) {
+                |k| match get_keys_from_k(&signature, &BigUint::from(k), &p, &q, &g) {
                     Some((private, public)) => match public.value() == public_key.value() {
                         true => Some((private, public)),
                         false => None,
