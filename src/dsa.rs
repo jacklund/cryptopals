@@ -1,4 +1,6 @@
 use crate::digest::Digest;
+use crate::util::unhexify;
+use lazy_static::lazy_static;
 use num::{One, Zero};
 use num_bigint::*;
 use num_modular::ModularUnaryOps;
@@ -50,11 +52,44 @@ impl Signature {
     }
 }
 
+lazy_static! {
+    static ref DEFAULT_P: BigUint = BigUint::from_bytes_be(
+        &unhexify(
+            "800000000000000089e1855218a0e7dac38136ffafa72eda7\
+             859f2171e25e65eac698c1702578b07dc2a1076da241c76c6\
+             2d374d8389ea5aeffd3226a0530cc565f3bf6b50929139ebe\
+             ac04f48c3c84afb796d61e5a4f9a8fda812ab59494232c7d2\
+             b4deb50aa18ee9e132bfa85ac4374d7f9091abc3d015efc87\
+             1a584471bb1"
+        )
+        .unwrap()
+    );
+    static ref DEFAULT_Q: BigUint =
+        BigUint::from_bytes_be(&unhexify("f4f47f05794b256174bba6e9b396a7707e563c5b").unwrap());
+    static ref DEFAULT_G: BigUint = BigUint::from_bytes_be(
+        &unhexify(
+            "5958c9d3898b224b12672c0b98e06c60df923cb8bc999d119\
+             458fef538b8fa4046c8db53039db620c094c9fa077ef389b5\
+             322a559946a71903f990f1f7e0e025e2d7f7cf494aff1a047\
+             0f5b64c36b625a097f1651fe775323556fe00b3608c887892\
+             878480e99041be601a62166ca6894bdd41a7054ec89f756ba\
+             9fc95302291"
+        )
+        .unwrap()
+    );
+}
+
 #[derive(Debug)]
 pub struct DSA {
     p: BigUint,
     q: BigUint,
     g: BigUint,
+}
+
+impl Default for DSA {
+    fn default() -> Self {
+        DSA::new(&DEFAULT_P, &DEFAULT_Q, &DEFAULT_G)
+    }
 }
 
 impl DSA {
@@ -135,29 +170,43 @@ impl DSA {
 
         v == signature.r
     }
-}
 
-// Retrieve the public and private keys from the k value
-pub fn get_keys_from_k(
-    &Signature {
-        ref r,
-        ref s,
-        message: _,
-        ref hash,
-    }: &Signature,
-    k: &BigUint,
-    p: &BigUint,
-    q: &BigUint,
-    g: &BigUint,
-) -> Option<(PrivateKey, PublicKey)> {
-    // Because of how we calculate s, s * k has to be > hash for any valid
-    // values of k, so we ignore any where this isn't true (also makes the math easier
-    if (s * k) < *hash {
-        return None;
+    // Retrieve the public and private keys from the k value
+    pub fn get_keys_from_nonce(
+        &self,
+        &Signature {
+            ref r,
+            ref s,
+            message: _,
+            ref hash,
+        }: &Signature,
+        k: &BigUint,
+    ) -> Option<(PrivateKey, PublicKey)> {
+        // Because of how we calculate s, s * k has to be > hash for any valid
+        // values of k, so we ignore any where this isn't true (also makes the math easier
+        if (s * k) < *hash {
+            return None;
+        }
+
+        // Calculate the keys
+        let x = (((s * k) - hash) * r.invm(&self.q).unwrap()) % self.q.clone();
+        let y = self.g.modpow(&x, &self.p);
+        Some((PrivateKey::new(x), PublicKey::new(y)))
     }
 
-    // Calculate the keys
-    let x = (((s * k) - hash) * r.invm(q).unwrap()) % q.clone();
-    let y = g.modpow(&x, p);
-    Some((PrivateKey::new(x), PublicKey::new(y)))
+    pub fn get_keys_from_repeated_nonce(
+        &self,
+        first: &Signature,
+        second: &Signature,
+    ) -> Option<(PrivateKey, PublicKey)> {
+        let diff_invm = ((first.s.clone() - second.s.clone()) % self.q.clone()).invm(&self.q);
+        match diff_invm {
+            Some(diff_invm) => {
+                let k = ((first.hash.clone() - second.hash.clone()) % self.q.clone()) * diff_invm
+                    % self.q.clone();
+                Some(self.get_keys_from_nonce(first, &k).unwrap())
+            }
+            None => None,
+        }
+    }
 }
