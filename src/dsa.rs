@@ -53,7 +53,7 @@ impl Signature {
 }
 
 lazy_static! {
-    static ref DEFAULT_P: BigUint = BigUint::from_bytes_be(
+    pub static ref DEFAULT_P: BigUint = BigUint::from_bytes_be(
         &unhexify(
             "800000000000000089e1855218a0e7dac38136ffafa72eda7\
              859f2171e25e65eac698c1702578b07dc2a1076da241c76c6\
@@ -64,9 +64,9 @@ lazy_static! {
         )
         .unwrap()
     );
-    static ref DEFAULT_Q: BigUint =
+    pub static ref DEFAULT_Q: BigUint =
         BigUint::from_bytes_be(&unhexify("f4f47f05794b256174bba6e9b396a7707e563c5b").unwrap());
-    static ref DEFAULT_G: BigUint = BigUint::from_bytes_be(
+    pub static ref DEFAULT_G: BigUint = BigUint::from_bytes_be(
         &unhexify(
             "5958c9d3898b224b12672c0b98e06c60df923cb8bc999d119\
              458fef538b8fa4046c8db53039db620c094c9fa077ef389b5\
@@ -84,6 +84,7 @@ pub struct DSA {
     p: BigUint,
     q: BigUint,
     g: BigUint,
+    check_r: bool,
 }
 
 impl Default for DSA {
@@ -98,7 +99,12 @@ impl DSA {
             p: p.clone(),
             q: q.clone(),
             g: g.clone(),
+            check_r: true,
         }
+    }
+
+    pub fn disable_r_checking(&mut self) {
+        self.check_r = false;
     }
 
     pub fn modulus_size(&self) -> usize {
@@ -141,7 +147,10 @@ impl DSA {
                 r = self.g.modpow(&k, &self.p) % self.q.clone();
                 s = (inv_k * (hash.clone() + key.0.clone() * r.clone())) % self.q.clone();
                 let inv_s_opt = s.clone().invm(&self.q);
-                if r > BigUint::zero() && s > BigUint::zero() && inv_s_opt.is_some() {
+                if (!self.check_r || r > BigUint::zero())
+                    && s > BigUint::zero()
+                    && inv_s_opt.is_some()
+                {
                     break;
                 }
             }
@@ -209,4 +218,19 @@ impl DSA {
             None => None,
         }
     }
+}
+
+pub fn generate_magic_signature() -> Signature {
+    let dsa = DSA::new(
+        &DEFAULT_P,
+        &DEFAULT_Q,
+        &(DEFAULT_P.clone() + BigUint::one()),
+    );
+
+    let (_private, public) = dsa.generate_keypair();
+    let z = BigUint::from(2u32);
+    let r = public.value().modpow(&z, &DEFAULT_Q) % DEFAULT_P.clone();
+    let s = (r.clone() * z.invm(&DEFAULT_Q).unwrap()) % DEFAULT_Q.clone();
+
+    Signature::new(&r, &s, "", &BigUint::zero())
 }
