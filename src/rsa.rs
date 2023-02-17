@@ -1,5 +1,4 @@
 use crate::digest::Digest;
-use anyhow::{Error, Result};
 use asn1::{Asn1Read, Asn1Write, ObjectIdentifier};
 use num::{One, Zero};
 use num_bigint::*;
@@ -7,6 +6,22 @@ use num_modular::ModularUnaryOps;
 use num_prime::RandPrime;
 use rand::{self, Rng};
 use std::collections::VecDeque;
+use thiserror::Error;
+
+// Errors
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("Message too long")]
+    MessageTooLong,
+
+    #[error("Bad padding")]
+    BadPadding,
+
+    #[error("Invalid padding length")]
+    InvalidLength,
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 // Trait for a PKCS1 1.5 padding type
 pub trait PaddingType {
@@ -37,7 +52,7 @@ impl PaddingType for EncryptionPadding {
     // Encryption padding must be at least 8 bytes
     fn check_size(&self) -> Result<()> {
         if self.data_size > self.size - 11 {
-            return Err(Error::msg("Message too long"));
+            return Err(Error::MessageTooLong);
         }
 
         Ok(())
@@ -60,7 +75,7 @@ impl PaddingType for EncryptionPadding {
             Some(2) => (),
             value => {
                 println!("Got {:?} as operation type, expected 2", value);
-                return Err(Error::msg("Bad padding"));
+                return Err(Error::BadPadding);
             }
         }
         loop {
@@ -69,7 +84,7 @@ impl PaddingType for EncryptionPadding {
                 Some(_) => (),
                 None => {
                     println!("Ran out of data in padding");
-                    return Err(Error::msg("Bad padding"));
+                    return Err(Error::BadPadding);
                 }
             }
         }
@@ -91,7 +106,7 @@ impl PaddingType for SignaturePadding {
 
     fn check_size(&self) -> Result<()> {
         if self.data_size > self.size - 3 {
-            return Err(Error::msg("Message too long"));
+            return Err(Error::MessageTooLong);
         }
 
         Ok(())
@@ -110,7 +125,7 @@ impl PaddingType for SignaturePadding {
             Some(1) => (),
             value => {
                 println!("Got {:?} as operation type, expected 2", value);
-                return Err(Error::msg("Bad padding"));
+                return Err(Error::BadPadding);
             }
         }
         loop {
@@ -119,7 +134,7 @@ impl PaddingType for SignaturePadding {
                 Some(0xff) => (),
                 value => {
                     println!("Expected padding of 0xff, got {:?}", value);
-                    return Err(Error::msg("Bad padding"));
+                    return Err(Error::BadPadding);
                 }
             }
         }
@@ -162,7 +177,7 @@ where
     match data.pop_front() {
         Some(0) => (),
         _ => {
-            return Err(Error::msg("Bad padding"));
+            return Err(Error::BadPadding);
         }
     }
     T::unpad(&mut data)?;
@@ -270,7 +285,7 @@ pub fn generate_keypair(bit_size: usize) -> (PrivateKey, PublicKey) {
 // to compensate
 pub fn left_pad(data: &[u8], length: usize) -> Result<Vec<u8>> {
     if data.len() > length {
-        Err(Error::msg("Invalid padding length"))
+        Err(Error::InvalidLength)
     } else {
         let mut output = vec![0; length - data.len()];
         output.extend_from_slice(data);
@@ -280,7 +295,7 @@ pub fn left_pad(data: &[u8], length: usize) -> Result<Vec<u8>> {
 
 pub fn encrypt_uint(key: &PublicKey, plaintext: &BigUint) -> Result<BigUint> {
     if *plaintext > key.modulus {
-        Err(Error::msg("Message is larger than the key modulus"))
+        Err(Error::MessageTooLong)
     } else {
         Ok(plaintext.modpow(&key.exponent, &key.modulus))
     }
