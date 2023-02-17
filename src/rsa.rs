@@ -8,18 +8,165 @@ use num_prime::RandPrime;
 use rand::{self, Rng};
 use std::collections::VecDeque;
 
-// const MD2_OID: ObjectIdentifier = oid!(1, 2, 840, 113549, 2, 2);
-// const MD4_OID: ObjectIdentifier = oid!(1, 2, 840, 113549, 2, 3);
-// const MD5_OID: ObjectIdentifier = oid!(1, 2, 840, 113549, 2, 5);
-// const SHA1_OID: ObjectIdentifier = oid!(1, 3, 14, 3, 2, 26);
-// const SHA224_OID: ObjectIdentifier = oid!(2, 16, 840, 1, 101, 3, 4, 2, 4);
-// const SHA256_OID: ObjectIdentifier = oid!(2, 16, 840, 1, 101, 3, 4, 2, 1);
-// const SHA384_OID: ObjectIdentifier = oid!(2, 16, 840, 1, 101, 3, 4, 2, 2);
-// const SHA512_OID: ObjectIdentifier = oid!(2, 16, 840, 1, 101, 3, 4, 2, 3);
+// Trait for a PKCS1 1.5 padding type
+pub trait PaddingType {
+    const BLOCK_TYPE: u8;
 
-enum OperationType {
-    Encryption,
-    Signature,
+    fn new(size: usize, data_size: usize) -> Self;
+
+    fn check_size(&self) -> Result<()>;
+
+    fn padding(&self) -> Vec<u8>;
+
+    fn unpad(data: &mut VecDeque<u8>) -> Result<()>;
+}
+
+// PKCS1 1.5 encryption padding type
+struct EncryptionPadding {
+    size: usize,
+    data_size: usize,
+}
+
+impl PaddingType for EncryptionPadding {
+    const BLOCK_TYPE: u8 = 2;
+
+    fn new(size: usize, data_size: usize) -> Self {
+        Self { size, data_size }
+    }
+
+    // Encryption padding must be at least 8 bytes
+    fn check_size(&self) -> Result<()> {
+        if self.data_size > self.size - 11 {
+            return Err(Error::msg("Message too long"));
+        }
+
+        Ok(())
+    }
+
+    // Pad with pseudorandom bytes
+    fn padding(&self) -> Vec<u8> {
+        let padding_length = self.size - self.data_size - 3;
+        let mut output: Vec<u8> = Vec::with_capacity(padding_length);
+        for _ in 0..padding_length {
+            output.push(rand::thread_rng().gen_range(1..0xff));
+        }
+
+        output
+    }
+
+    // Unpad
+    fn unpad(data: &mut VecDeque<u8>) -> Result<()> {
+        match data.pop_front() {
+            Some(2) => (),
+            value => {
+                println!("Got {:?} as operation type, expected 2", value);
+                return Err(Error::msg("Bad padding"));
+            }
+        }
+        loop {
+            match data.pop_front() {
+                Some(0) => break Ok(()),
+                Some(_) => (),
+                None => {
+                    println!("Ran out of data in padding");
+                    return Err(Error::msg("Bad padding"));
+                }
+            }
+        }
+    }
+}
+
+// PKCS1 1.5 signature padding type
+struct SignaturePadding {
+    size: usize,
+    data_size: usize,
+}
+
+impl PaddingType for SignaturePadding {
+    const BLOCK_TYPE: u8 = 1;
+
+    fn new(size: usize, data_size: usize) -> Self {
+        Self { size, data_size }
+    }
+
+    fn check_size(&self) -> Result<()> {
+        if self.data_size > self.size - 3 {
+            return Err(Error::msg("Message too long"));
+        }
+
+        Ok(())
+    }
+
+    // Pad with 0xff
+    fn padding(&self) -> Vec<u8> {
+        let padding_length = self.size - self.data_size - 3;
+
+        vec![0xff; padding_length]
+    }
+
+    // Unpad
+    fn unpad(data: &mut VecDeque<u8>) -> Result<()> {
+        match data.pop_front() {
+            Some(1) => (),
+            value => {
+                println!("Got {:?} as operation type, expected 2", value);
+                return Err(Error::msg("Bad padding"));
+            }
+        }
+        loop {
+            match data.pop_front() {
+                Some(0) => break Ok(()),
+                Some(0xff) => (),
+                value => {
+                    println!("Expected padding of 0xff, got {:?}", value);
+                    return Err(Error::msg("Bad padding"));
+                }
+            }
+        }
+    }
+}
+
+// Pad using PKCS1 1.5 padding of the given type
+pub fn pad<T>(size: usize, data: &[u8]) -> Result<Vec<u8>>
+where
+    T: PaddingType,
+{
+    let padder = T::new(size, data.len());
+    padder.check_size()?;
+
+    let mut output: Vec<u8> = Vec::with_capacity(size);
+
+    // Leading zero
+    output.push(0);
+
+    // Block type
+    output.push(T::BLOCK_TYPE);
+
+    // Nonzero pseudorandom bytes
+    output.extend(padder.padding());
+
+    // End of padding
+    output.push(0);
+
+    output.extend_from_slice(data);
+
+    Ok(output)
+}
+
+// Unpad using PKCS1 1.5 padding of the given type
+pub fn unpad<T>(data: &[u8]) -> Result<Vec<u8>>
+where
+    T: PaddingType,
+{
+    let mut data: VecDeque<u8> = VecDeque::from(data.to_vec());
+    match data.pop_front() {
+        Some(0) => (),
+        _ => {
+            return Err(Error::msg("Bad padding"));
+        }
+    }
+    T::unpad(&mut data)?;
+    Ok(data.iter().copied().collect())
 }
 
 #[derive(Asn1Read, Asn1Write, Debug)]
@@ -118,95 +265,6 @@ pub fn generate_keypair(bit_size: usize) -> (PrivateKey, PublicKey) {
     }
 }
 
-// PKCS1 v1.5 padding
-fn pad(operation_type: OperationType, modulus_bytes: usize, data: &[u8]) -> Result<Vec<u8>> {
-    if data.len() > modulus_bytes - 11 {
-        return Err(Error::msg("Message too long"));
-    }
-
-    let padding_length = modulus_bytes - data.len() - 3;
-    let mut output: Vec<u8> = Vec::with_capacity(modulus_bytes);
-    output.push(0);
-    match operation_type {
-        OperationType::Encryption => {
-            // Block type
-            output.push(2);
-
-            for _ in 0..padding_length {
-                output.push(rand::thread_rng().gen_range(1..0xff));
-            }
-            output.push(0);
-        }
-        OperationType::Signature => {
-            output.push(1); // Block type
-            output.extend(
-                std::iter::repeat(0xff)
-                    .take(padding_length)
-                    .collect::<Vec<u8>>(),
-            );
-            output.push(0);
-        }
-    }
-
-    output.extend_from_slice(data);
-
-    Ok(output)
-}
-
-fn unpad(operation_type: OperationType, data: &[u8]) -> Result<Vec<u8>> {
-    println!("unpadding data: {:?}", data);
-    let mut data: VecDeque<u8> = VecDeque::from(data.to_vec());
-    match data.pop_front() {
-        Some(0) => (),
-        bad_value => {
-            println!("Got bad first byte value {:?}", bad_value);
-            return Err(Error::msg("Bad padding"));
-        }
-    }
-    match operation_type {
-        OperationType::Encryption => {
-            match data.pop_front() {
-                Some(2) => (),
-                value => {
-                    println!("Got {:?} as operation type, expected 2", value);
-                    return Err(Error::msg("Bad padding"));
-                }
-            }
-            loop {
-                match data.pop_front() {
-                    Some(0) => break,
-                    Some(_) => (),
-                    None => {
-                        println!("Ran out of data in padding");
-                        return Err(Error::msg("Bad padding"));
-                    }
-                }
-            }
-            Ok(data.iter().copied().collect())
-        }
-        OperationType::Signature => {
-            match data.pop_front() {
-                Some(1) => (),
-                value => {
-                    println!("Got {:?} as operation type, expected 1", value);
-                    return Err(Error::msg("Bad padding"));
-                }
-            }
-            loop {
-                match data.pop_front() {
-                    Some(0) => break,
-                    Some(0xff) => (),
-                    value => {
-                        println!("Expected padding of 0xff, got {:?}", value);
-                        return Err(Error::msg("Bad padding"));
-                    }
-                }
-            }
-            Ok(data.iter().copied().collect())
-        }
-    }
-}
-
 // Left pad our data with zeroes. When we encrypt/decrypt byte streams, the leading bytes might be
 // zeroes, which will get lost when the bytes get converted to BigUint, so we pad out to the left
 // to compensate
@@ -220,17 +278,19 @@ pub fn left_pad(data: &[u8], length: usize) -> Result<Vec<u8>> {
     }
 }
 
+pub fn encrypt_uint(key: &PublicKey, plaintext: &BigUint) -> Result<BigUint> {
+    if *plaintext > key.modulus {
+        Err(Error::msg("Message is larger than the key modulus"))
+    } else {
+        Ok(plaintext.modpow(&key.exponent, &key.modulus))
+    }
+}
+
 // Encrypt without the PKCS 1.5 padding
 pub fn encrypt_without_padding(key: &PublicKey, plaintext: &[u8]) -> Result<Vec<u8>> {
     let msg_uint = BigUint::from_bytes_be(plaintext);
-    if msg_uint > key.modulus {
-        return Err(Error::msg("Message is larger than the key modulus"));
-    }
     left_pad(
-        &msg_uint
-            .modpow(&key.exponent, &key.modulus)
-            .to_bytes_be()
-            .to_vec(),
+        &encrypt_uint(key, &msg_uint)?.to_bytes_be(),
         key.byte_length(),
     )
 }
@@ -239,32 +299,25 @@ pub fn encrypt_without_padding(key: &PublicKey, plaintext: &[u8]) -> Result<Vec<
 pub fn encrypt(key: &PublicKey, plaintext: &[u8]) -> Result<Vec<u8>> {
     encrypt_without_padding(
         key,
-        &pad(OperationType::Encryption, key.byte_length(), plaintext)?,
+        &pad::<EncryptionPadding>(key.byte_length(), plaintext)?,
     )
+}
+
+pub fn decrypt_uint(key: &PrivateKey, ciphertext: &BigUint) -> BigUint {
+    ciphertext.modpow(&key.exponent, &key.modulus)
 }
 
 // Decrypt without the padding
 pub fn decrypt_without_padding(key: &PrivateKey, ciphertext: &[u8]) -> Result<Vec<u8>> {
-    let msg_uint = BigUint::from_bytes_be(ciphertext);
-    // if msg_uint > key.modulus {
-    //     println!("message = {}, key modulus = {}", msg_uint, key.modulus);
-    //     return Err(Error::msg("Message is larger than the key modulus"));
-    // }
     left_pad(
-        &msg_uint
-            .modpow(&key.exponent, &key.modulus)
-            .to_bytes_be()
-            .to_vec(),
+        &decrypt_uint(key, &BigUint::from_bytes_be(ciphertext)).to_bytes_be(),
         key.byte_length(),
     )
 }
 
 // Decrypt
 pub fn decrypt(key: &PrivateKey, ciphertext: &[u8]) -> Result<Vec<u8>> {
-    unpad(
-        OperationType::Encryption,
-        &decrypt_without_padding(key, ciphertext)?,
-    )
+    unpad::<EncryptionPadding>(&decrypt_without_padding(key, ciphertext)?)
 }
 
 pub fn sign<T>(key: &PrivateKey, message: &[u8]) -> Result<Vec<u8>>
@@ -275,7 +328,7 @@ where
     hasher.update(message);
     let hash = hasher.digest().to_vec();
     let asn_1 = asn1::write_single(&DigestInfo::new(T::OID, &hash)).unwrap();
-    let padded = pad(OperationType::Signature, key.byte_length(), &asn_1)?;
+    let padded = pad::<SignaturePadding>(key.byte_length(), &asn_1)?;
     println!("Padded signature = {:?}", padded);
     decrypt_without_padding(key, &padded)
 }
@@ -295,7 +348,7 @@ where
         }
     };
     println!("signature bytes = {:?}", signature_bytes);
-    let unpadded = match unpad(OperationType::Signature, &signature_bytes) {
+    let unpadded = match unpad::<SignaturePadding>(&signature_bytes) {
         Ok(bytes) => bytes,
         Err(error) => {
             println!("Got error from unpad: {}", error);
@@ -340,7 +393,7 @@ where
         }
     };
     println!("signature bytes = {:?}", signature_bytes);
-    let unpadded = match unpad(OperationType::Signature, &signature_bytes) {
+    let unpadded = match unpad::<SignaturePadding>(&signature_bytes) {
         Ok(bytes) => bytes,
         Err(error) => {
             println!("Got error from unpad: {}", error);
