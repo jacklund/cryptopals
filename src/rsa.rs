@@ -1,7 +1,7 @@
 use crate::digest::Digest;
 use anyhow::{Error, Result};
 use asn1::{Asn1Read, Asn1Write, ObjectIdentifier};
-use num::One;
+use num::{One, Zero};
 use num_bigint::*;
 use num_modular::ModularUnaryOps;
 use num_prime::RandPrime;
@@ -226,7 +226,6 @@ pub fn encrypt_without_padding(key: &PublicKey, plaintext: &[u8]) -> Result<Vec<
     if msg_uint > key.modulus {
         return Err(Error::msg("Message is larger than the key modulus"));
     }
-    println!("Encrypting {:?}", plaintext);
     left_pad(
         &msg_uint
             .modpow(&key.exponent, &key.modulus)
@@ -247,9 +246,10 @@ pub fn encrypt(key: &PublicKey, plaintext: &[u8]) -> Result<Vec<u8>> {
 // Decrypt without the padding
 pub fn decrypt_without_padding(key: &PrivateKey, ciphertext: &[u8]) -> Result<Vec<u8>> {
     let msg_uint = BigUint::from_bytes_be(ciphertext);
-    if msg_uint > key.modulus {
-        return Err(Error::msg("Message is larger than the key modulus"));
-    }
+    // if msg_uint > key.modulus {
+    //     println!("message = {}, key modulus = {}", msg_uint, key.modulus);
+    //     return Err(Error::msg("Message is larger than the key modulus"));
+    // }
     left_pad(
         &msg_uint
             .modpow(&key.exponent, &key.modulus)
@@ -363,6 +363,12 @@ where
     hasher.update(message);
     let hash = hasher.digest().to_vec();
     hash == digest_info.digest
+}
+
+pub fn is_even_oracle(private_key: &PrivateKey, ciphertext: &[u8]) -> bool {
+    BigUint::from_bytes_be(&decrypt_without_padding(private_key, ciphertext).unwrap())
+        % BigUint::from(2u32)
+        == BigUint::zero()
 }
 
 #[cfg(test)]
