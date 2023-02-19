@@ -1,12 +1,16 @@
 use crate::digest::Digest;
 use asn1::{Asn1Read, Asn1Write, ObjectIdentifier};
+use num::Integer;
 use num::{One, Zero};
 use num_bigint::*;
 use num_modular::ModularUnaryOps;
 use num_prime::RandPrime;
 use rand::{self, Rng};
+use std::cmp::{max, min};
 use std::collections::VecDeque;
 use thiserror::Error;
+
+pub mod bleichenbacher;
 
 // Errors
 #[derive(Error, Debug)]

@@ -28,19 +28,13 @@ mod tests {
 
         // For each bit, multiply by two and see if it's odd or even
         for _ in 0..public.modulus.bits() {
-            c = c.clone() * two_encrypted.clone();
+            c = &c * &two_encrypted;
             if is_even_oracle(&private, &c.to_bytes_be()) {
-                bounds = (
-                    bounds.0.clone(),
-                    (bounds.0.clone() + bounds.1.clone()).shr(1),
-                );
+                bounds = (bounds.0.clone(), (&bounds.0 + &bounds.1).shr(1));
             } else {
-                bounds = (
-                    (bounds.0.clone() + bounds.1.clone()).shr(1),
-                    bounds.1.clone(),
-                );
+                bounds = ((&bounds.0 + &bounds.1).shr(1), bounds.1.clone());
             }
-            println!("{}", String::from_utf8_lossy(&bounds.1.to_bytes_be()));
+            // println!("{}", String::from_utf8_lossy(&bounds.1.to_bytes_be()));
         }
 
         // Very strange, I can get all but the last char - I'm guessing this is due to some sort of
