@@ -18,6 +18,7 @@ impl PKCS15Oracle {
     }
 }
 
+// Implementation of attack from Bleichenbacher(98) - https://link.springer.com/content/pdf/10.1007/BFb0055716.pdf
 pub struct Bleichenbacher {
     oracle: PKCS15Oracle,
     c: BigUint,
@@ -54,17 +55,20 @@ impl Bleichenbacher {
     // We find an s >= n / 3B such that c * s ^ e mod n is conforming
     // This means that p * s is conforming, which means that
     // 2B <= p * s mod n < 3B
-    fn step_2a(&self) -> BigUint {
+    // This is step 2.a from the Bleichenbacher paper
+    fn find_initial_s(&self) -> BigUint {
         let s = self.n.div_ceil(&((&self.B).mul(3u8)));
         self.check_pkcs_15_and_increment_s(s)
     }
 
-    fn step_2b(&self, s_prev: &BigUint) -> BigUint {
+    // This is step 2.b from the Bleichenbacher paper
+    fn find_s_with_multiple_intervals(&self, s_prev: &BigUint) -> BigUint {
         let s = s_prev + 1u8;
         self.check_pkcs_15_and_increment_s(s)
     }
 
-    fn step_2c(&self, s_prev: &BigUint, a: &BigUint, b: &BigUint) -> BigUint {
+    // This is step 2.c from the Bleichenbacher paper
+    fn find_s_with_one_interval(&self, s_prev: &BigUint, a: &BigUint, b: &BigUint) -> BigUint {
         let mut r = ((b * s_prev - &self.B * 2u8) * 2u8).div_ceil(&self.n);
         loop {
             let mut s = (2u8 * &self.B + &r * &self.n).div_ceil(b);
@@ -78,7 +82,12 @@ impl Bleichenbacher {
         }
     }
 
-    fn step_3(&self, m: &Vec<(BigUint, BigUint)>, s: &BigUint) -> Vec<(BigUint, BigUint)> {
+    // This is step 3 from the Bleichenbacher paper
+    fn narrow_solutions(
+        &self,
+        m: &Vec<(BigUint, BigUint)>,
+        s: &BigUint,
+    ) -> Vec<(BigUint, BigUint)> {
         let mut new_m: Vec<(BigUint, BigUint)> = Vec::new();
         for (ref a, ref b) in m {
             let start = (a * s - &self.B * 3u8 + 1u8).div_ceil(&self.n);
@@ -115,26 +124,26 @@ impl Bleichenbacher {
     }
 
     pub fn attack(&self) -> BigUint {
-        let mut s = self.step_2a();
+        let mut s = self.find_initial_s();
 
         let mut m = vec![(2u8 * &self.B, 3u8 * &self.B - 1u8)];
-        m = self.step_3(&m, &s);
+        m = self.narrow_solutions(&m, &s);
 
         let msg: BigUint;
         loop {
             match m.len() {
-                l if l > 1 => s = self.step_2b(&s),
+                l if l > 1 => s = self.find_s_with_multiple_intervals(&s),
                 l if l == 1 => {
                     if m[0].0 == m[0].1 {
                         msg = &m[0].0 % &self.n;
                         return msg;
                     }
-                    s = self.step_2c(&s, &m[0].0, &m[0].1);
+                    s = self.find_s_with_one_interval(&s, &m[0].0, &m[0].1);
                 }
                 _ => unreachable!(),
             }
 
-            m = self.step_3(&m, &s);
+            m = self.narrow_solutions(&m, &s);
         }
     }
 }
