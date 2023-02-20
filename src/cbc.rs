@@ -53,6 +53,12 @@ pub fn cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8], blocksize: usize) -
         .unwrap()
 }
 
+// CBC MAC
+pub fn cbc_mac(key: &[u8], iv: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
+    let ciphertext = cbc_encrypt(key, iv, plaintext, blocksize);
+    ciphertext[ciphertext.len() - blocksize..].to_vec()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

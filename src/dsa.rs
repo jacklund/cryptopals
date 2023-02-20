@@ -172,7 +172,7 @@ impl DSA {
 
         let u1 = (hash * &w) % &self.q;
         let u2 = (&signature.r * w) % &self.q;
-        let v = ((&self.g).modpow(&u1, &self.p) * key.0.modpow(&u2, &self.p) % &self.p) % &self.q;
+        let v = ((self.g).modpow(&u1, &self.p) * key.0.modpow(&u2, &self.p) % &self.p) % &self.q;
 
         v == signature.r
     }
