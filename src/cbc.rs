@@ -13,7 +13,7 @@ pub fn cbc_encrypt(key: &[u8], iv: &[u8], plaintext: &[u8], blocksize: usize) ->
             // Xor with previous ciphertext, then encrypt
             let encrypted =
                 ecb_encrypt_without_padding(key, &xor(&prev_ciphertext, chunk).unwrap(), blocksize);
-            output.extend(encrypted.clone());
+            output.extend(&encrypted);
             (encrypted, output)
         },
     );

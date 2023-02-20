@@ -131,7 +131,7 @@ pub fn break_repeating_key_xor(ciphertext: &[u8]) -> (Vec<u8>, Vec<u8>) {
 // This basically becomes the Vignere case, where we break the keystream byte by byte
 pub fn break_ctr(ciphertexts: &[Vec<u8>]) -> Vec<u8> {
     let mut transposed = vec![];
-    for ciphertext in ciphertexts.clone() {
+    for ciphertext in ciphertexts {
         for index in 0..ciphertext.len() {
             if transposed.len() <= index {
                 transposed.push(vec![]);
@@ -302,7 +302,7 @@ pub fn decrypt_byte_at_a_time<F: Fn(&[u8], &[u8]) -> bool>(
         solution.extend(decrypt_block_byte_at_a_time(
             block_num,
             iv,
-            &ciphertext.clone()[..(block_num + 1) * blocksize],
+            &ciphertext[..(block_num + 1) * blocksize],
             blocksize,
             validation_fn,
         ));

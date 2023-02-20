@@ -264,15 +264,15 @@ pub fn generate_keypair(bit_size: usize) -> (PrivateKey, PublicKey) {
             continue;
         }
 
-        let n = p.clone() * q.clone();
+        let n = &p * &q;
 
         // Make sure we have the right bit size
         if n.bits() != bit_size as u64 {
             continue;
         }
-        let et = (p.clone() - BigUint::one()) * (q.clone() - BigUint::one());
+        let et = (&p - BigUint::one()) * (&q - BigUint::one());
         let e = BigUint::from(3u32);
-        let d: Option<BigUint> = e.clone().invm(&et);
+        let d: Option<BigUint> = (&e).invm(&et);
 
         if d.is_none() {
             continue;

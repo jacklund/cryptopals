@@ -147,7 +147,7 @@ impl SRPServerSession {
         } else {
             // Standard SRP
             //  B = k * v + g ^ b % N
-            k * verifier.clone() + g.modpow(&b, &N)
+            k * &verifier + g.modpow(&b, &N)
         };
 
         let u = if simplified {
@@ -184,7 +184,7 @@ impl SRPSession for SRPServerSession {
     // Authenticate by generating the HMAC of the shared key, and comparing
     fn authenticate(&mut self, hmac_of_shared_key: &[u8]) -> bool {
         //  S = (A * (v ^ u % N)) ^ b % N
-        let S = (self.A.clone() * self.verifier.modpow(&self.u, &N)).modpow(&self.b, &N);
+        let S = (&self.A * self.verifier.modpow(&self.u, &N)).modpow(&self.b, &N);
 
         // Shared key, which is the SHA256 hash of S
         let K = Sha256::digest(util::get_bytes(&S));
@@ -235,8 +235,8 @@ where
         let a = rand::thread_rng().gen_bigint_range(&BigInt::zero(), &N);
 
         // Generate a DH public key from the private key
-        let A = match self.A.clone() {
-            Some(A) => A,
+        let A = match &self.A {
+            Some(A) => A.clone(),
             None => g.modpow(&a, &N),
         };
 
@@ -260,7 +260,7 @@ where
         let x = hash_to_int(&salt, password.as_bytes());
 
         // Generate S
-        let S = match self.A.clone() {
+        let S = match &self.A {
             // In the case where we send back a bogus value for A, we have to set S to zero for the
             // auth to happen
             Some(_) => BigInt::zero(),

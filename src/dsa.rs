@@ -112,8 +112,7 @@ impl DSA {
     }
 
     pub fn generate_keypair(&self) -> (PrivateKey, PublicKey) {
-        let x = rand::thread_rng()
-            .gen_biguint_range(&BigUint::one(), &(self.q.clone() - BigUint::one()));
+        let x = rand::thread_rng().gen_biguint_range(&BigUint::one(), &(&self.q - BigUint::one()));
         let y = self.g.modpow(&x, &self.p);
         (PrivateKey(x), PublicKey(y))
     }
@@ -142,11 +141,11 @@ impl DSA {
         loop {
             k = rand::thread_rng()
                 .gen_biguint_range(&BigUint::one(), &(self.q.clone() - BigUint::one()));
-            let inv_k_opt = k.clone().invm(&self.q);
+            let inv_k_opt = (&k).invm(&self.q);
             if let Some(inv_k) = inv_k_opt {
-                r = self.g.modpow(&k, &self.p) % self.q.clone();
-                s = (inv_k * (hash.clone() + key.0.clone() * r.clone())) % self.q.clone();
-                let inv_s_opt = s.clone().invm(&self.q);
+                r = self.g.modpow(&k, &self.p) % &self.q;
+                s = (inv_k * (&hash + &key.0 * &r)) % &self.q;
+                let inv_s_opt = (&s).invm(&self.q);
                 if (!self.check_r || r > BigUint::zero())
                     && s > BigUint::zero()
                     && inv_s_opt.is_some()
@@ -169,13 +168,11 @@ impl DSA {
 
         let hash = self.hash_message::<D>(message.as_bytes());
 
-        let w = signature.s.clone().invm(&self.q).unwrap();
+        let w = (&signature.s).invm(&self.q).unwrap();
 
-        let u1 = (hash * w.clone()) % self.q.clone();
-        let u2 = (signature.r.clone() * w) % self.q.clone();
-        let v = (self.g.clone().modpow(&u1, &self.p) * key.0.clone().modpow(&u2, &self.p)
-            % self.p.clone())
-            % self.q.clone();
+        let u1 = (hash * &w) % &self.q;
+        let u2 = (&signature.r * w) % &self.q;
+        let v = ((&self.g).modpow(&u1, &self.p) * key.0.modpow(&u2, &self.p) % &self.p) % &self.q;
 
         v == signature.r
     }
@@ -198,7 +195,7 @@ impl DSA {
         }
 
         // Calculate the keys
-        let x = (((s * k) - hash) * r.invm(&self.q).unwrap()) % self.q.clone();
+        let x = (((s * k) - hash) * r.invm(&self.q).unwrap()) % &self.q;
         let y = self.g.modpow(&x, &self.p);
         Some((PrivateKey::new(x), PublicKey::new(y)))
     }
@@ -208,11 +205,10 @@ impl DSA {
         first: &Signature,
         second: &Signature,
     ) -> Option<(PrivateKey, PublicKey)> {
-        let diff_invm = ((first.s.clone() - second.s.clone()) % self.q.clone()).invm(&self.q);
+        let diff_invm = ((&first.s - &second.s) % &self.q).invm(&self.q);
         match diff_invm {
             Some(diff_invm) => {
-                let k = ((first.hash.clone() - second.hash.clone()) % self.q.clone()) * diff_invm
-                    % self.q.clone();
+                let k = ((&first.hash - &second.hash) % &self.q) * diff_invm % &self.q;
                 Some(self.get_keys_from_nonce(first, &k).unwrap())
             }
             None => None,
@@ -230,7 +226,7 @@ pub fn generate_magic_signature() -> Signature {
     let (_private, public) = dsa.generate_keypair();
     let z = BigUint::from(2u32);
     let r = public.value().modpow(&z, &DEFAULT_Q) % DEFAULT_P.clone();
-    let s = (r.clone() * z.invm(&DEFAULT_Q).unwrap()) % DEFAULT_Q.clone();
+    let s = (&r * z.invm(&DEFAULT_Q).unwrap()) % DEFAULT_Q.clone();
 
     Signature::new(&r, &s, "", &BigUint::zero())
 }

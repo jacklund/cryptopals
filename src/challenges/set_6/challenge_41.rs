@@ -16,7 +16,7 @@ mod tests {
         let n = pubkey.modulus;
         let e = pubkey.exponent;
 
-        let cprime = (S.modpow(&e, &n) * ciphertext) % n.clone();
+        let cprime = (S.modpow(&e, &n) * ciphertext) % &n;
         let pprime = decrypt_without_padding(&privkey, &cprime.to_bytes_be()).unwrap();
 
         let p = (BigUint::from_bytes_be(&pprime) * S.invm(&n).unwrap()) % n;

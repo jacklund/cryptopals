@@ -45,7 +45,7 @@ mod tests {
         // that we can perform the subtraction below without underflow
         let groups = signatures
             .iter()
-            .group_by(|s| s.r.clone())
+            .group_by(|s| &s.r)
             .into_iter()
             .map(|(_, grp)| grp.into_iter().cloned().collect::<Vec<Signature>>())
             .map(|mut v| {

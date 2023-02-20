@@ -28,17 +28,17 @@ mod tests {
         let n2 = pubkey_2.modulus.to_biguint().unwrap();
 
         // Calculate various intermediate values
-        let ms0 = n1.clone() * n2.clone();
-        let ms1 = n0.clone() * n2.clone();
-        let ms2 = n0.clone() * n1.clone();
+        let ms0 = &n1 * &n2;
+        let ms1 = &n0 * &n2;
+        let ms2 = &n0 * &n1;
 
-        let n012 = n0.clone() * n1.clone() * n2.clone();
+        let n012 = &n0 * &n1 * &n2;
 
-        let result = c0 * ms0.clone() * ms0.clone().invm(&n0.clone()).unwrap()
-            + c1 * ms1.clone() * ms1.clone().invm(&n1.clone()).unwrap()
-            + c2 * ms2.clone() * ms2.clone().invm(&n2.clone()).unwrap();
+        let result = c0 * &ms0 * ms0.invm(&n0).unwrap()
+            + c1 * &ms1 * ms1.invm(&n1).unwrap()
+            + c2 * &ms2 * ms2.invm(&n2).unwrap();
 
-        let decrypted = (result % n012.clone()).cbrt().to_bytes_be();
+        let decrypted = (result % n012).cbrt().to_bytes_be();
         assert_eq!(plaintext, decrypted);
     }
 }
