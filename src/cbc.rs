@@ -59,6 +59,18 @@ pub fn cbc_mac(key: &[u8], iv: &[u8], plaintext: &[u8], blocksize: usize) -> Vec
     ciphertext[ciphertext.len() - blocksize..].to_vec()
 }
 
+// CBC MAC Verify
+pub fn cbc_mac_verify(
+    key: &[u8],
+    iv: &[u8],
+    plaintext: &[u8],
+    mac: &[u8],
+    blocksize: usize,
+) -> bool {
+    let verifier = cbc_mac(key, iv, plaintext, blocksize);
+    verifier == mac
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
