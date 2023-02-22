@@ -180,11 +180,11 @@ impl DSA {
     // Retrieve the public and private keys from the k value
     pub fn get_keys_from_nonce(
         &self,
-        &Signature {
-            ref r,
-            ref s,
+        Signature {
+            r,
+            s,
             message: _,
-            ref hash,
+            hash,
         }: &Signature,
         k: &BigUint,
     ) -> Option<(PrivateKey, PublicKey)> {
