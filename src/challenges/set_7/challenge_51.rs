@@ -7,11 +7,26 @@ mod tests {
     use flate2::write::ZlibEncoder;
     use flate2::Compression;
     use itertools::Itertools;
+    use lazy_static::lazy_static;
     use rand::{self, Rng};
     use std::io::prelude::*;
 
+    // Our Base64 character set
+    lazy_static! {
+        static ref BASE64_CHARS: Vec<char> = {
+            let mut base64_chars = util::NUMBERS_TO_BASE64
+                .values()
+                .map(|c| *c)
+                .collect::<Vec<char>>();
+            base64_chars.push('=');
+            base64_chars.sort();
+            base64_chars
+        };
+    }
+
     type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
 
+    // Format the payload
     fn format(payload: &str) -> String {
         format!(
             "POST / HTTP/1.1\n\
@@ -24,22 +39,32 @@ mod tests {
         )
     }
 
+    // Compress the payload
     fn compress(payload: &str) -> Vec<u8> {
         let mut e = ZlibEncoder::new(Vec::new(), Compression::default());
         e.write_all(payload.as_bytes()).unwrap();
         e.finish().unwrap()
     }
 
+    // Encrypt the payload, either with a stream cipher (AES128 in CTR mode) or a block cipher
+    // (AES128 in CBC mode). Note, I'm _not_ using my CBC implementation, since it's significantly
+    // slower (duh) than the RustCrypto one
     fn encrypt(payload: &[u8], stream: bool) -> Vec<u8> {
         let blocksize = 16;
+
+        // Generate random key each time
         let mut key: [u8; 16] = [0; 16];
         rand::thread_rng().fill(&mut key);
+
         if stream {
+            // Random nonce
             let nonce: u64 = rand::random();
             ctr(&key, nonce, payload, blocksize)
         } else {
+            // Random IV
             let mut iv: [u8; 16] = [0; 16];
             rand::thread_rng().fill(&mut iv);
+
             // Use a real crate here, my impl takes too long
             Aes128CbcEnc::new(&key.into(), &iv.into()).encrypt_padded_vec_mut::<Pkcs7>(&payload)
         }
@@ -49,21 +74,22 @@ mod tests {
         encrypt(&compress(&format(payload)), stream).len()
     }
 
+    // My approach:
+    // 1. Create a base payload of "Cookie: sessionid="
+    // 2. Create a set of payloads by appending each of the possible Base64 characters to it
+    // 3. Run each payload through the oracle, and get the subset with the smallest compressed size
+    // 4. With that subset, add the next character by going back to step 2. This will be the
+    //    product set of my subset and all possible Base64 characters
+    // 5. Loop forever. Just kidding. Stop looping when we have a set of solutions all of which
+    //    decode to 32 bytes or greater
+    // 6. Of that set, find the ones that are exactly 32 bytes. That's our solution set. Hopefully,
+    //    there's just one. :-)
     fn compression_ratio_attack(stream: bool) -> String {
-        // Set up our list of Base64 characters
-        let mut base64_chars = util::NUMBERS_TO_BASE64
-            .values()
-            .map(|c| *c)
-            .collect::<Vec<char>>();
-        base64_chars.push('=');
-        base64_chars.sort();
-
-        // We loop, adding a char each loop iteration
         let mut solutions = vec![String::new()];
         loop {
             // Get a list of all possible combinations of the existing solutions combined with a
             // new character, along with it's compression score
-            let mut results = base64_chars
+            let mut results = BASE64_CHARS
                 .iter()
                 .map(|c| {
                     solutions.iter().map(move |s| {
@@ -105,10 +131,13 @@ mod tests {
 
     #[test]
     fn challenge_51() {
+        // Using a stream cipher
         assert_eq!(
             "TmV2ZXIgcmV2ZWFsIHRoZSBXdS1UYW5nIFNlY3JldCE=",
             compression_ratio_attack(true)
         );
+
+        // Using a block cipher
         assert_eq!(
             "TmV2ZXIgcmV2ZWFsIHRoZSBXdS1UYW5nIFNlY3JldCE=",
             compression_ratio_attack(false)
