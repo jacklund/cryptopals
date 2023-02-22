@@ -9,6 +9,7 @@ mod tests {
     use itertools::Itertools;
     use lazy_static::lazy_static;
     use rand::{self, Rng};
+    use rayon::prelude::*;
     use std::io::prelude::*;
 
     // Our Base64 character set
@@ -89,10 +90,11 @@ mod tests {
         loop {
             // Get a list of all possible combinations of the existing solutions combined with a
             // new character, along with it's compression score
+            // NOTE: Using rayon here ("par_iter()") to increase parallelism and speed things up
             let mut results = BASE64_CHARS
-                .iter()
+                .par_iter()
                 .map(|c| {
-                    solutions.iter().map(move |s| {
+                    solutions.par_iter().map(move |s| {
                         let test = format!("{}{}", s, c);
                         (oracle(&format!("Cookie: sessionid={}", test), stream), test)
                     })
