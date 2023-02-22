@@ -3,6 +3,7 @@ use lazy_static::lazy_static;
 use num_bigint::*;
 use rand;
 
+// NIST-recommended DH parameters
 lazy_static! {
     pub static ref NIST_P: BigInt = BigInt::from_bytes_le(
         Sign::Plus,
@@ -21,6 +22,7 @@ lazy_static! {
     pub static ref NIST_G: BigInt = BigInt::from(2u32);
 }
 
+// Diffie-Hellman
 pub struct DiffieHellman {
     pub p: BigInt,
     pub g: BigInt,
@@ -28,6 +30,7 @@ pub struct DiffieHellman {
 }
 
 impl DiffieHellman {
+    // Generate it using your own values
     pub fn new(p: BigInt, g: BigInt) -> Self {
         let mut rng = rand::thread_rng();
         Self {
@@ -37,13 +40,9 @@ impl DiffieHellman {
         }
     }
 
+    // Generate it using the NIST-recommended values
     pub fn nist() -> Self {
-        let mut rng = rand::thread_rng();
-        Self {
-            p: NIST_P.clone(),
-            g: NIST_G.clone(),
-            private_key: rng.gen_bigint_range(&BigInt::from(0u32), &NIST_P),
-        }
+        Self::new(NIST_P.clone(), NIST_G.clone())
     }
 
     pub fn generate_public_key(&self) -> BigInt {
