@@ -44,7 +44,7 @@ lazy_static! {
             (15, 'f'),
         ])
     };
-    static ref NUMBERS_TO_BASE64: HashMap<u8, char> = {
+    pub static ref NUMBERS_TO_BASE64: HashMap<u8, char> = {
         HashMap::from([
             (0, 'A'),
             (1, 'B'),
