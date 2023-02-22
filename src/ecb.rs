@@ -3,6 +3,7 @@ use crate::util::get_padding_size;
 use aes::cipher::{generic_array::GenericArray, BlockDecrypt, BlockEncrypt, KeyInit};
 use aes::Aes128;
 
+// Used in Challenges 12 and 14
 pub fn ecb_encrypt_with_prefix_and_suffix(
     key: &[u8],
     plaintext: &[u8],
@@ -18,6 +19,7 @@ pub fn ecb_encrypt_with_prefix_and_suffix(
     ecb_encrypt(key, &payload, blocksize)
 }
 
+// Decrypt
 pub fn ecb_decrypt(key: &[u8], ciphertext: &[u8], blocksize: usize) -> Vec<u8> {
     let cipher = Aes128::new(GenericArray::from_slice(key));
     ciphertext
@@ -30,6 +32,7 @@ pub fn ecb_decrypt(key: &[u8], ciphertext: &[u8], blocksize: usize) -> Vec<u8> {
         .collect::<Vec<u8>>()
 }
 
+// Encrypt using ECB without the PKCS7 padding
 pub fn ecb_encrypt_without_padding(key: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
     let cipher = Aes128::new(GenericArray::from_slice(key));
     plaintext
@@ -42,6 +45,7 @@ pub fn ecb_encrypt_without_padding(key: &[u8], plaintext: &[u8], blocksize: usiz
         .collect()
 }
 
+// Encrypt using ECB with PKCS7 padding
 pub fn ecb_encrypt(key: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
     ecb_encrypt_without_padding(key, &plaintext.pkcs7_serialize(blocksize), blocksize)
 }
@@ -59,6 +63,8 @@ pub fn detect_ecb(ciphertext: &[u8], blocksize: usize) -> bool {
     false
 }
 
+// Decrypt ECB byte-by-byte by using the padding, pushing a single non-padding byte across the
+// block boundary, guessing that, rinse, repeat
 pub fn byte_by_byte_ecb_decrypt<F: Fn(&[u8]) -> Vec<u8>>(
     encrypt_fn: &F,
     prefix_size: usize,

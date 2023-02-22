@@ -7,10 +7,12 @@ use params::*;
 use reqwest;
 use std::time::{Duration, Instant};
 
+// Convenience function for doing HMAC-SHA1
 pub fn hmac_sha1(key: &[u8], message: &[u8]) -> Vec<u8> {
     hmac::<SHA1>(key, message)
 }
 
+// Generic HMAC function
 pub fn hmac<H>(key: &[u8], message: &[u8]) -> Vec<u8>
 where
     H: Digest,
@@ -56,6 +58,7 @@ where
     H::new().update(&outer).digest()
 }
 
+// HMAC server, used in challenges 31 and 32
 pub struct HMacServer {
     sleep_time_msec: u64,
     key: Vec<u8>,
@@ -283,7 +286,7 @@ where
     }
 }
 
-// Convenience function
+// Timing attack, used in challenges 31 and 32
 pub fn hmac_timing_attack<H, F>(test_fn: &F, plaintext: &[u8], threshold: f32) -> Option<Vec<u8>>
 where
     H: Digest,

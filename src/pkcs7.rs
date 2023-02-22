@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 
+// Traits to serialize/deserialize PKCS7
 pub trait Serialize {
     fn pkcs7_serialize(&self, blocksize: usize) -> Vec<u8>;
 }
@@ -33,6 +34,8 @@ pub fn check_padding(data: &[u8], blocksize: usize) -> Result<usize> {
         Err(anyhow!("Bad padding"))
     }
 }
+
+// Various implementations for byte streams
 
 impl Serialize for &[u8] {
     fn pkcs7_serialize(&self, blocksize: usize) -> Vec<u8> {
