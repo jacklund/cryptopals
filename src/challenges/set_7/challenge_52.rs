@@ -80,7 +80,7 @@ mod tests {
         let mut f = MD::new(3);
         let mut g = MD::new(4);
         let both_collisions = f
-            .find_collisions(8)
+            .find_collisions(16)
             .iter()
             .filter(|(message1, message2)| g.md(message1) == g.md(message2))
             .map(|(m1, m2)| (m1.clone(), m2.clone()))
@@ -89,5 +89,6 @@ mod tests {
         // Honestly, not sure what to assert here
         println!("total hashes = {}", f.num_hashes);
         println!("collisions = {}", both_collisions.len());
+        assert!(f.num_hashes <= 16 * 2usize.pow(16));
     }
 }
