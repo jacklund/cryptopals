@@ -1,94 +1,105 @@
 #[cfg(test)]
 mod tests {
-    use crate::pkcs7::*;
-    use crate::util::*;
-    use aes::{
-        cipher::{block_padding::Pkcs7, generic_array::GenericArray, BlockEncryptMut, KeyInit},
-        Aes128,
-    };
-    use rand::{self, Rng};
+    use super::super::*;
+    use itertools::*;
+    use rand;
     use std::collections::HashMap;
 
-    // Our hash
-    struct MD {
-        h_bytes: usize,
-        collisions: Vec<(Vec<u8>, Vec<u8>)>,
-        pub num_hashes: usize,
+    fn find_collisions(iv: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<u8>, u32) {
+        // Keep track of the hashes
+        let mut hashes = HashMap::<Vec<u8>, Vec<u8>>::new();
+
+        // Keep count of how many times we call hash function
+        let mut count = 0u32;
+
+        // Generate random messages
+        for bytes in std::iter::repeat_with(|| {
+            std::iter::repeat_with(|| rand::random::<u8>())
+                .take(BLOCKSIZE)
+                .collect::<Vec<u8>>()
+        }) {
+            let hash = md::<MDPadding>(&iv, &bytes);
+            count += 1;
+
+            // Find those collisions
+            if hashes.contains_key(&hash) {
+                return (
+                    bytes.to_vec(),
+                    hashes.get(&hash).unwrap().clone(),
+                    hash,
+                    count,
+                );
+            } else {
+                hashes.insert(hash, bytes.to_vec());
+            }
+        }
+
+        unreachable!()
     }
 
-    impl MD {
-        // Hash with initial H size
-        fn new(h_bytes: usize) -> Self {
-            Self {
-                h_bytes,
-                collisions: vec![],
-                num_hashes: 0,
-            }
+    fn find_multicollisions(iv: &[u8], iterations: usize) -> (Vec<Vec<u8>>, u32) {
+        let mut collisions = vec![];
+
+        let mut hash = iv.to_vec();
+        let mut block_a;
+        let mut block_b;
+        let mut count: u32;
+        let mut total_count: u32 = 0;
+        for _ in 0..iterations {
+            (block_a, block_b, hash, count) = find_collisions(&hash);
+            collisions.push(vec![block_a, block_b]);
+            total_count += count;
         }
 
-        // Generate the hash
-        fn md(&mut self, data: &[u8]) -> Vec<u8> {
-            let blocksize = 16;
-
-            let h_init = vec![0u8; self.h_bytes];
-            let mut h = h_init.clone();
-            for block in data.pkcs7_serialize(blocksize).chunks(blocksize) {
-                h.extend(vec![0u8; blocksize - h.len()]);
-                let cipher = Aes128::new(GenericArray::from_slice(&h));
-                // NOTE: we xor here, see https://twitter.com/_ilchen_/status/1134214918012583936
-                h = xor(
-                    &cipher.encrypt_padded_vec_mut::<Pkcs7>(&block)[..h_init.len()].to_vec(),
-                    &h[..h_init.len()],
-                )
-                .unwrap();
-            }
-
-            self.num_hashes += 1;
-            h
-        }
-
-        // Find 2^n collisions
-        fn find_collisions(&mut self, n: u32) -> Vec<(Vec<u8>, Vec<u8>)> {
-            // Keep track of the hashes
-            let mut hashes = HashMap::<Vec<u8>, Vec<u8>>::new();
-
-            // Generate random messages
-            for message in rand::thread_rng()
-                .sample_iter::<u64, rand::distributions::Standard>(rand::distributions::Standard)
-            {
-                let bytes = message.to_be_bytes();
-                let hash = self.md(&bytes);
-
-                // Find those collisions
-                if hashes.contains_key(&hash) {
-                    self.collisions
-                        .push((bytes.to_vec(), hashes.get(&hash).unwrap().clone()));
-                    if self.collisions.len() >= 2usize.pow(n) {
-                        break;
-                    }
-                } else {
-                    hashes.insert(hash, bytes.to_vec());
-                }
-            }
-
-            self.collisions.clone()
-        }
+        (
+            collisions
+                .iter()
+                .multi_cartesian_product()
+                .map(|blocks| {
+                    blocks.iter().fold(Vec::new(), |mut a, block| {
+                        a.extend(block.clone());
+                        a
+                    })
+                })
+                .collect(),
+            total_count,
+        )
     }
 
     #[test]
     fn challenge_52() {
-        let mut f = MD::new(3);
-        let mut g = MD::new(4);
-        let both_collisions = f
-            .find_collisions(16)
+        // Part one: Generate a 2 ^ 5 collisions on a 5-byte hash function
+        let hash_size = 5;
+        let iv = vec![0u8; hash_size];
+        let (collisions, count) = find_multicollisions(&iv, 5);
+        println!(
+            "num collisions = {}, number of times hash function called = {}",
+            collisions.len(),
+            count
+        );
+
+        let n = hash_size as u32 * 8;
+        assert!(count <= n * 2u32.pow(n / 2));
+
+        // Part two: Generate a composite hash function, and show that you can get collisions from
+        // the weaker one and use them as collisions of the whole thing
+        let f_size = 3;
+        let g_size = 4;
+        let f_iv = vec![0u8; f_size];
+        let g_iv = vec![0u8; g_size];
+        let (f_collisions, f_count) = find_multicollisions(&f_iv, g_size);
+        let collisions = f_collisions
             .iter()
-            .filter(|(message1, message2)| g.md(message1) == g.md(message2))
+            .cartesian_product(f_collisions.iter())
+            .filter(|(message1, message2)| {
+                md::<MDPadding>(&g_iv, message1) == md::<MDPadding>(&g_iv, message2)
+            })
             .map(|(m1, m2)| (m1.clone(), m2.clone()))
             .collect::<Vec<(Vec<u8>, Vec<u8>)>>();
-
-        // Honestly, not sure what to assert here
-        println!("total hashes = {}", f.num_hashes);
-        println!("collisions = {}", both_collisions.len());
-        assert!(f.num_hashes <= 16 * 2usize.pow(16));
+        println!("Collisions = {}", collisions.len());
+        println!(
+            "Hash function called {} times",
+            f_count + f_collisions.len().pow(2) as u32
+        );
     }
 }
