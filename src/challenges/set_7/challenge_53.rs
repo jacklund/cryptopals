@@ -273,5 +273,6 @@ mod tests {
         let expandable_hash = md::<MDPadding>(&IV, &message);
 
         assert_eq!(hash, expandable_hash);
+        assert_ne!(target_message, message);
     }
 }
