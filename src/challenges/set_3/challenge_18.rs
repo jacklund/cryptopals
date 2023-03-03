@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
     use crate::ctr::ctr;
-    use base64;
 
     #[test]
     fn challenge_18() {

@@ -2,7 +2,6 @@
 mod tests {
     use crate::cbc::cbc_decrypt;
     use crate::tests::ICE_ICE_BABY;
-    use base64;
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 

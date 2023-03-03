@@ -3,7 +3,6 @@ mod tests {
     use crate::ecb::ecb_decrypt;
     use crate::pkcs7::Deserialize;
     use crate::tests::ICE_ICE_BABY;
-    use base64;
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 

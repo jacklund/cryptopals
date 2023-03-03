@@ -3,7 +3,6 @@ mod tests {
     use crate::cracking::{find_blocksize, get_prefix_size, get_suffix_size};
     use crate::ecb::{byte_by_byte_ecb_decrypt, detect_ecb, ecb_encrypt_with_prefix_and_suffix};
     use crate::util::generate_key;
-    use base64;
     use lazy_static::lazy_static;
 
     lazy_static! {

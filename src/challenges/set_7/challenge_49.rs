@@ -38,7 +38,7 @@ mod tests {
             assert_eq!(iv.len(), self.blocksize);
             let mac = &request[request.len() - self.blocksize..];
             assert_eq!(mac.len(), self.blocksize);
-            let computed_mac = cbc_mac(&self.key, &iv, message, 16);
+            let computed_mac = cbc_mac(&self.key, iv, message, 16);
 
             mac == computed_mac
         }
@@ -117,14 +117,13 @@ mod tests {
         // since the block we xored won't, in general, be a valid string
         //
         // Get the valid request and split out the message and mac
-        let request =
-            client_and_api.create_request_v2("foo", &vec![("bar", "200"), ("bee", "200")]);
+        let request = client_and_api.create_request_v2("foo", &[("bar", "200"), ("bee", "200")]);
         assert!(client_and_api.check_request_v2(&request));
         let message = &request[..request.len() - blocksize].to_vec();
         let mac = &request[request.len() - blocksize..];
 
         // Forge our request
-        let request2 = client_and_api.create_request_v2("foo", &vec![("baz", "1000000")]);
+        let request2 = client_and_api.create_request_v2("foo", &[("baz", "1000000")]);
 
         // XOR the first block with the valid MAC
         let forged_first_block = xor(mac, &request2[..blocksize]).unwrap();

@@ -116,8 +116,7 @@ mod tests {
         test_good(16, 24);
         test_good(16, 32);
 
-        let base: Vec<u8> = std::iter::repeat(b'A').take(12).collect();
-        let mut bad = base.clone();
+        let mut bad: Vec<u8> = std::iter::repeat(b'A').take(12).collect();
         bad.extend(vec![0x1, 0x2, 0x3, 0x4]);
         let result = bad.pkcs7_deserialize(16);
         assert!(result.is_err());

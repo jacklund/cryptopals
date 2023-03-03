@@ -17,7 +17,7 @@ mod tests {
         static ref BASE64_CHARS: Vec<char> = {
             let mut base64_chars = util::NUMBERS_TO_BASE64
                 .values()
-                .map(|c| *c)
+                .copied()
                 .collect::<Vec<char>>();
             base64_chars.push('=');
             base64_chars.sort();
@@ -67,7 +67,7 @@ mod tests {
             rand::thread_rng().fill(&mut iv);
 
             // Use a real crate here, my impl takes too long
-            Aes128CbcEnc::new(&key.into(), &iv.into()).encrypt_padded_vec_mut::<Pkcs7>(&payload)
+            Aes128CbcEnc::new(&key.into(), &iv.into()).encrypt_padded_vec_mut::<Pkcs7>(payload)
         }
     }
 
@@ -126,7 +126,7 @@ mod tests {
         // Find the one that's exactly 32 bytes
         solutions
             .iter()
-            .find(|sol| base64::decode(&sol).unwrap().len() == 32)
+            .find(|sol| base64::decode(sol).unwrap().len() == 32)
             .unwrap()
             .clone()
     }

@@ -2,7 +2,6 @@
 mod tests {
     use crate::ctr::ctr;
     use crate::util::generate_key;
-    use rand;
     use std::collections::HashMap;
 
     // Encode our string, making sure to escape ; and = (and space, just for fun)
@@ -38,7 +37,7 @@ mod tests {
 
     // Decode our ciphertext
     fn decode(decrypted: &[u8]) -> HashMap<String, String> {
-        let plaintext = unsafe { std::str::from_utf8_unchecked(&decrypted) };
+        let plaintext = unsafe { std::str::from_utf8_unchecked(decrypted) };
         HashMap::from_iter(
             plaintext
                 .split(';')

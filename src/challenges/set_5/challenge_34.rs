@@ -30,7 +30,7 @@ mod tests {
         // Alice encrypts her message using the CBC key and IV
         let alice_message = "This is my super-secret message!";
         let mut alice_encrypted = cbc_encrypt(
-            &alice_cbc_key,
+            alice_cbc_key,
             &alice_iv,
             alice_message.as_bytes(),
             BLOCKSIZE,
@@ -48,8 +48,8 @@ mod tests {
 
         // Bob decrypts the message
         let bob_decrypted = cbc_decrypt(
-            &bob_cbc_key,
-            &bob_iv,
+            bob_cbc_key,
+            bob_iv,
             &alice_encrypted[..alice_encrypted.len() - BLOCKSIZE],
             BLOCKSIZE,
         );
@@ -58,8 +58,8 @@ mod tests {
         assert_eq!(alice_message.as_bytes(), bob_decrypted,);
 
         // Bob encrypts the decrypted message, adds the IV, and "sends" it to Alice
-        let mut bob_encrypted = cbc_encrypt(&bob_cbc_key, &bob_iv, &bob_decrypted, BLOCKSIZE);
-        bob_encrypted.extend_from_slice(&bob_iv);
+        let mut bob_encrypted = cbc_encrypt(bob_cbc_key, bob_iv, &bob_decrypted, BLOCKSIZE);
+        bob_encrypted.extend_from_slice(bob_iv);
 
         // Alice checks that the encrypted data matches
         assert_eq!(alice_encrypted, bob_encrypted);
@@ -83,7 +83,7 @@ mod tests {
         let _bob_public = bob.generate_public_key();
 
         // Mallory intercepts and sends the P value as Bob's public key
-        let bob_public = alice_p.clone();
+        let bob_public = alice_p;
 
         // Alice generates a session key, a CBC key using the SHA1 of the session key, and a random
         // IV
@@ -105,7 +105,7 @@ mod tests {
         // Alice encrypts her message using the CBC key and IV
         let alice_message = "This is my super-secret message!";
         let mut alice_encrypted = cbc_encrypt(
-            &alice_cbc_key,
+            alice_cbc_key,
             &alice_iv,
             alice_message.as_bytes(),
             BLOCKSIZE,
@@ -131,8 +131,8 @@ mod tests {
 
         // Bob decrypts the message
         let bob_decrypted = cbc_decrypt(
-            &bob_cbc_key,
-            &bob_iv,
+            bob_cbc_key,
+            bob_iv,
             &alice_encrypted[..alice_encrypted.len() - BLOCKSIZE],
             BLOCKSIZE,
         );
@@ -141,8 +141,8 @@ mod tests {
         assert_eq!(alice_message.as_bytes(), bob_decrypted,);
 
         // Bob encrypts the decrypted message, adds the IV, and "sends" it to Alice
-        let mut bob_encrypted = cbc_encrypt(&bob_cbc_key, &bob_iv, &bob_decrypted, BLOCKSIZE);
-        bob_encrypted.extend_from_slice(&bob_iv);
+        let mut bob_encrypted = cbc_encrypt(bob_cbc_key, bob_iv, &bob_decrypted, BLOCKSIZE);
+        bob_encrypted.extend_from_slice(bob_iv);
 
         // Alice checks that the encrypted data matches
         assert_eq!(alice_encrypted, bob_encrypted);
@@ -154,8 +154,8 @@ mod tests {
             .digest()[..BLOCKSIZE];
         let mallory_iv = &alice_encrypted[alice_encrypted.len() - BLOCKSIZE..];
         let mallory_decrypted = cbc_decrypt(
-            &mallory_cbc_key,
-            &mallory_iv,
+            mallory_cbc_key,
+            mallory_iv,
             &alice_encrypted[..alice_encrypted.len() - BLOCKSIZE],
             BLOCKSIZE,
         );

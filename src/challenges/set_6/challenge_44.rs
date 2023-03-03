@@ -64,7 +64,7 @@ mod tests {
             let second = &group[1];
 
             // Make sure the inverse mod exists
-            if let Some((private, _public)) = dsa.get_keys_from_repeated_nonce(&first, &second) {
+            if let Some((private, _public)) = dsa.get_keys_from_repeated_nonce(first, second) {
                 let sha = hexify(&sha1(hexify(&private.value().to_bytes_be()).as_bytes()));
                 assert_eq!("ca8f6f7c66fa362d40760d135b763eb8527d3d52", sha);
                 return;

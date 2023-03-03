@@ -13,13 +13,13 @@ mod tests {
         }
 
         let mut generator = vec![];
-        for index in 0..624 {
-            generator.push(untemper(values[index]));
+        for value in values.iter().take(624) {
+            generator.push(untemper(*value));
         }
 
         let mut mt2 = MarsenneTwister::from_splice(&generator);
-        for index in 0..624 {
-            assert_eq!(values[index], mt2.next_u32());
+        for value in values.iter().take(624) {
+            assert_eq!(*value, mt2.next_u32());
         }
     }
 }

@@ -3,7 +3,6 @@ mod tests {
     use crate::cracking::break_ctr;
     use crate::ctr::ctr;
     use crate::util::xor;
-    use base64;
 
     #[test]
     fn challenge_19() {

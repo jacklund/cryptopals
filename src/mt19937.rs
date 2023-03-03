@@ -185,7 +185,7 @@ mod tests {
     fn test_mt_iterator() {
         let seed = rand::random::<u32>();
         let mut mt = MarsenneTwister::from_seed(seed);
-        let ref mut mt_iterator = MarsenneTwister::from_seed(seed).into_iter();
+        let mt_iterator = &mut MarsenneTwister::from_seed(seed).into_iter();
         for _count in 0..100 {
             let buffer: [u8; 4] = mt_iterator.take(4).collect::<Vec<u8>>().try_into().unwrap();
             let value = u32::from_le_bytes(buffer);

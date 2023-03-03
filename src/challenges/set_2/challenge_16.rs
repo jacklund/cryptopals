@@ -27,7 +27,7 @@ mod tests {
         string.push_str(&encode(value));
         string.push_str(suffix);
 
-        cbc_encrypt(key, &iv, string.as_bytes(), blocksize)
+        cbc_encrypt(key, iv, string.as_bytes(), blocksize)
     }
 
     // Decrypt our ciphertext
@@ -37,7 +37,7 @@ mod tests {
 
     // Decode our ciphertext
     fn decode(decrypted: &[u8]) -> HashMap<String, String> {
-        let plaintext = unsafe { std::str::from_utf8_unchecked(&decrypted) };
+        let plaintext = unsafe { std::str::from_utf8_unchecked(decrypted) };
         HashMap::from_iter(
             plaintext
                 .split(';')

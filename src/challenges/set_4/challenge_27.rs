@@ -27,7 +27,7 @@ mod tests {
         string.push_str(&encode(value));
         string.push_str(suffix);
 
-        cbc_encrypt(key, &iv, string.as_bytes(), blocksize)
+        cbc_encrypt(key, iv, string.as_bytes(), blocksize)
     }
 
     // Decrypt our ciphertext
@@ -42,12 +42,12 @@ mod tests {
 
     // Decode our ciphertext
     fn decode(decrypted: &[u8]) -> Result<HashMap<String, String>, ASCIIError> {
-        if decrypted.iter().find(|b| **b > 127).is_some() {
+        if decrypted.iter().any(|b| *b > 127) {
             Err(ASCIIError {
                 plaintext: decrypted.to_vec(),
             })
         } else {
-            let plaintext = unsafe { std::str::from_utf8_unchecked(&decrypted) };
+            let plaintext = unsafe { std::str::from_utf8_unchecked(decrypted) };
             Ok(HashMap::from_iter(
                 plaintext
                     .split(';')
@@ -110,7 +110,7 @@ mod tests {
                         .collect::<Vec<u8>>()
                 );
             }
-            Ok(_) => assert!(false),
+            Ok(_) => panic!(),
         }
     }
 }

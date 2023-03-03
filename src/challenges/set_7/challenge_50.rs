@@ -14,7 +14,7 @@ mod tests {
         let original = "alert('MZA who was that?');\n";
         let mac = cbc_mac(key, &iv, original.as_bytes(), blocksize);
         assert!(cbc_mac_verify(
-            &key,
+            key,
             &iv,
             original.as_bytes(),
             &mac,

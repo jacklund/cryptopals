@@ -13,6 +13,6 @@ mod tests {
                 return;
             }
         }
-        assert!(false);
+        unreachable!()
     }
 }

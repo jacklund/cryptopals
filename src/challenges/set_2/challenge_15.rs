@@ -11,17 +11,11 @@ mod tests {
 
         match good_padding.pkcs7_deserialize(16) {
             Ok(result) => assert_eq!(value, result),
-            Err(_) => assert!(false),
+            Err(_) => unreachable!(),
         };
 
-        match bad_padding_1.pkcs7_deserialize(16) {
-            Ok(_) => assert!(false),
-            Err(_) => assert!(true),
-        };
+        assert!(bad_padding_1.pkcs7_deserialize(16).is_err());
 
-        match bad_padding_2.pkcs7_deserialize(16) {
-            Ok(_) => assert!(false),
-            Err(_) => assert!(true),
-        };
+        assert!(bad_padding_2.pkcs7_deserialize(16).is_err());
     }
 }

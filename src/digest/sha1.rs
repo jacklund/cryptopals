@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_sha1() {
-        let mut sha = SHA1::new().update(&"Hello, World!".as_bytes()).digest();
+        let mut sha = SHA1::new().update("Hello, World!".as_bytes()).digest();
 
         let mut expected_value = vec![
             0x0a, 0x0a, 0x9f, 0x2a, 0x67, 0x72, 0x94, 0x25, 0x57, 0xab, 0x53, 0x55, 0xd7, 0x6a,
@@ -168,7 +168,7 @@ mod tests {
 
         assert_eq!(expected_value, sha);
 
-        sha = SHA1::new().update(&"".as_bytes()).digest();
+        sha = SHA1::new().update("".as_bytes()).digest();
 
         expected_value = vec![
             0xda, 0x39, 0xa3, 0xee, 0x5e, 0x6b, 0x4b, 0x0d, 0x32, 0x55, 0xbf, 0xef, 0x95, 0x60,

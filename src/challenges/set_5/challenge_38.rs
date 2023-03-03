@@ -69,7 +69,7 @@ mod tests {
             // Dictionary attack
             for password in BAD_PASSWORD_LIST {
                 // We calculate our x based on what we passed to the client
-                let x = hash_to_int(&vec![], password.as_bytes());
+                let x = hash_to_int(&[], password.as_bytes());
 
                 // This takes some 'splainin:
                 // The simplified client calculates S as:
@@ -106,7 +106,7 @@ mod tests {
 
         fn get_u(&mut self) -> BigInt {
             let u = self.session.get_u();
-            self.u = u.clone();
+            self.u = u;
             self.u.clone()
         }
 

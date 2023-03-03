@@ -23,7 +23,7 @@ mod tests {
         let alice_public = BigInt::from(1u32);
 
         // Bob uses Alice's p and g values to generate a public key and sends that to Alice
-        let bob = DiffieHellman::new(alice_p.clone(), alice_g);
+        let bob = DiffieHellman::new(alice_p, alice_g);
         let bob_public = bob.generate_public_key();
 
         // Bob's public key is 1 now, because he used our injected g value of 1
@@ -44,7 +44,7 @@ mod tests {
         // Alice encrypts her message using the CBC key and IV
         let alice_message = "This is my super-secret message!";
         let mut alice_encrypted = cbc_encrypt(
-            &alice_cbc_key,
+            alice_cbc_key,
             &alice_iv,
             alice_message.as_bytes(),
             BLOCKSIZE,
@@ -65,8 +65,8 @@ mod tests {
 
         // Bob decrypts the message
         let bob_decrypted = cbc_decrypt(
-            &bob_cbc_key,
-            &bob_iv,
+            bob_cbc_key,
+            bob_iv,
             &alice_encrypted[..alice_encrypted.len() - BLOCKSIZE],
             BLOCKSIZE,
         );
@@ -75,8 +75,8 @@ mod tests {
         assert_eq!(alice_message.as_bytes(), bob_decrypted);
 
         // Bob encrypts the decrypted message, adds the IV, and "sends" it to Alice
-        let mut bob_encrypted = cbc_encrypt(&bob_cbc_key, &bob_iv, &bob_decrypted, BLOCKSIZE);
-        bob_encrypted.extend_from_slice(&bob_iv);
+        let mut bob_encrypted = cbc_encrypt(bob_cbc_key, bob_iv, &bob_decrypted, BLOCKSIZE);
+        bob_encrypted.extend_from_slice(bob_iv);
 
         // Alice checks that the encrypted data matches
         assert_eq!(alice_encrypted, bob_encrypted);
@@ -88,8 +88,8 @@ mod tests {
             .digest()[..BLOCKSIZE];
         let mallory_iv = &alice_encrypted[alice_encrypted.len() - BLOCKSIZE..];
         let mallory_decrypted = cbc_decrypt(
-            &mallory_cbc_key,
-            &mallory_iv,
+            mallory_cbc_key,
+            mallory_iv,
             &alice_encrypted[..alice_encrypted.len() - BLOCKSIZE],
             BLOCKSIZE,
         );
@@ -117,7 +117,7 @@ mod tests {
 
         // Bob uses Alice's p and g values to generate a public key and sends that to Alice
         // Bob's public key is now zero, since p ^ a mod p == 0
-        let bob = DiffieHellman::new(alice_p.clone(), alice_g);
+        let bob = DiffieHellman::new(alice_p, alice_g);
         let bob_public = bob.generate_public_key();
         assert_eq!(BigInt::from(0u32), bob_public);
 
@@ -142,7 +142,7 @@ mod tests {
         // Alice encrypts her message using the CBC key and IV
         let alice_message = "This is my super-secret message!";
         let mut alice_encrypted = cbc_encrypt(
-            &alice_cbc_key,
+            alice_cbc_key,
             &alice_iv,
             alice_message.as_bytes(),
             BLOCKSIZE,
@@ -169,8 +169,8 @@ mod tests {
 
         // Bob decrypts the message
         let bob_decrypted = cbc_decrypt(
-            &bob_cbc_key,
-            &bob_iv,
+            bob_cbc_key,
+            bob_iv,
             &alice_encrypted[..alice_encrypted.len() - BLOCKSIZE],
             BLOCKSIZE,
         );
@@ -179,8 +179,8 @@ mod tests {
         assert_eq!(alice_message.as_bytes(), bob_decrypted);
 
         // Bob encrypts the decrypted message, adds the IV, and "sends" it to Alice
-        let mut bob_encrypted = cbc_encrypt(&bob_cbc_key, &bob_iv, &bob_decrypted, BLOCKSIZE);
-        bob_encrypted.extend_from_slice(&bob_iv);
+        let mut bob_encrypted = cbc_encrypt(bob_cbc_key, bob_iv, &bob_decrypted, BLOCKSIZE);
+        bob_encrypted.extend_from_slice(bob_iv);
 
         // Alice checks that the encrypted data matches
         assert_eq!(alice_encrypted, bob_encrypted);
@@ -192,8 +192,8 @@ mod tests {
             .digest()[..BLOCKSIZE];
         let mallory_iv = &alice_encrypted[alice_encrypted.len() - BLOCKSIZE..];
         let mallory_decrypted = cbc_decrypt(
-            &mallory_cbc_key,
-            &mallory_iv,
+            mallory_cbc_key,
+            mallory_iv,
             &alice_encrypted[..alice_encrypted.len() - BLOCKSIZE],
             BLOCKSIZE,
         );
@@ -225,11 +225,9 @@ mod tests {
         let bob_public = bob.generate_public_key();
 
         // Bob's public key is going to be either 1 or p - 1
-        if bob_public == BigInt::from(1u32) || bob_public == alice_p.clone() - BigInt::from(1u32) {
-            assert!(true)
-        } else {
-            assert!(false)
-        };
+        assert!(
+            bob_public == BigInt::from(1u32) || bob_public == alice_p.clone() - BigInt::from(1u32)
+        );
 
         // Alice generates a session key, a CBC key using the SHA1 of the session key, and a random
         // IV
@@ -240,18 +238,15 @@ mod tests {
         let alice_iv = util::generate_random_bytes(BLOCKSIZE);
 
         // Alice's session key is going to be either 1 or p - 1
-        if alice_session == BigInt::from(1u32)
-            || alice_session == alice_p.clone() - BigInt::from(1u32)
-        {
-            assert!(true)
-        } else {
-            assert!(false)
-        };
+        assert!(
+            alice_session == BigInt::from(1u32)
+                || alice_session == alice_p.clone() - BigInt::from(1u32)
+        );
 
         // Alice encrypts her message using the CBC key and IV
         let alice_message = "This is my super-secret message!";
         let mut alice_encrypted = cbc_encrypt(
-            &alice_cbc_key,
+            alice_cbc_key,
             &alice_iv,
             alice_message.as_bytes(),
             BLOCKSIZE,
@@ -271,41 +266,35 @@ mod tests {
         let bob_iv = &alice_encrypted[alice_encrypted.len() - BLOCKSIZE..];
 
         // Bob decrypts the message
-        match cbc_decrypt_without_deserialize(
-            &bob_cbc_key,
-            &bob_iv,
+        if let Ok(bob_decrypted) = cbc_decrypt_without_deserialize(
+            bob_cbc_key,
+            bob_iv,
             &alice_encrypted[..alice_encrypted.len() - BLOCKSIZE],
             BLOCKSIZE,
         )
         .pkcs7_deserialize(BLOCKSIZE)
         {
-            Ok(bob_decrypted) => {
-                // Ensure that the message decrypts correctly
-                assert_eq!(alice_message.as_bytes(), bob_decrypted);
+            // Ensure that the message decrypts correctly
+            assert_eq!(alice_message.as_bytes(), bob_decrypted);
 
-                // Bob encrypts the decrypted message, adds the IV, and "sends" it to Alice
-                let mut bob_encrypted =
-                    cbc_encrypt(&bob_cbc_key, &bob_iv, &bob_decrypted, BLOCKSIZE);
-                bob_encrypted.extend_from_slice(&bob_iv);
+            // Bob encrypts the decrypted message, adds the IV, and "sends" it to Alice
+            let mut bob_encrypted = cbc_encrypt(bob_cbc_key, bob_iv, &bob_decrypted, BLOCKSIZE);
+            bob_encrypted.extend_from_slice(bob_iv);
 
-                // Alice checks that the encrypted data matches
-                assert_eq!(alice_encrypted, bob_encrypted);
-            }
-
-            // Half the time, this isn't going to decrypt
-            Err(_) => (),
+            // Alice checks that the encrypted data matches
+            assert_eq!(alice_encrypted, bob_encrypted);
         }
 
         // Mallory knows that the session key used by Alice to encrypt the message is either 1 or
         // p - 1, so we try both
-        for mallory_session in [BigInt::from(1u32), alice_p.clone() - BigInt::from(1u32)] {
+        for mallory_session in [BigInt::from(1u32), alice_p - BigInt::from(1u32)] {
             let mallory_cbc_key = &SHA1::new()
                 .update(&util::get_bytes(&mallory_session))
                 .digest()[..BLOCKSIZE];
             let mallory_iv = &alice_encrypted[alice_encrypted.len() - BLOCKSIZE..];
             let mallory_decrypted = cbc_decrypt_without_deserialize(
-                &mallory_cbc_key,
-                &mallory_iv,
+                mallory_cbc_key,
+                mallory_iv,
                 &alice_encrypted[..alice_encrypted.len() - BLOCKSIZE],
                 BLOCKSIZE,
             );
@@ -315,6 +304,6 @@ mod tests {
             }
         }
 
-        assert!(false);
+        unreachable!()
     }
 }

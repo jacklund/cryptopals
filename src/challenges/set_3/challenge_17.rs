@@ -4,7 +4,6 @@ mod tests {
     use crate::cracking::decrypt_byte_at_a_time;
     use crate::pkcs7::*;
     use crate::util::{generate_iv, generate_key};
-    use base64;
     use rand::{self, Rng};
 
     const PADDING_ORACLE_STRINGS: [&str; 10] = [

@@ -14,23 +14,23 @@ mod tests {
 
         // Generate random messages
         for bytes in std::iter::repeat_with(|| {
-            std::iter::repeat_with(|| rand::random::<u8>())
+            std::iter::repeat_with(rand::random::<u8>)
                 .take(BLOCKSIZE)
                 .collect::<Vec<u8>>()
         }) {
-            let hash = md::<MDPadding>(&iv, &bytes);
+            let hash = md::<MDPadding>(iv, &bytes);
             count += 1;
 
             // Find those collisions
-            if hashes.contains_key(&hash) {
+            if let std::collections::hash_map::Entry::Vacant(e) = hashes.entry(hash.clone()) {
+                e.insert(bytes.to_vec());
+            } else {
                 return (
                     bytes.to_vec(),
                     hashes.get(&hash).unwrap().clone(),
                     hash,
                     count,
                 );
-            } else {
-                hashes.insert(hash, bytes.to_vec());
             }
         }
 
@@ -57,7 +57,7 @@ mod tests {
                 .multi_cartesian_product()
                 .map(|blocks| {
                     blocks.iter().fold(Vec::new(), |mut a, block| {
-                        a.extend(block.clone());
+                        a.extend(&(*block).clone());
                         a
                     })
                 })

@@ -2,7 +2,6 @@
 mod tests {
     use crate::cracking::break_repeating_key_xor;
     use crate::tests::ICE_ICE_BABY;
-    use base64;
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 

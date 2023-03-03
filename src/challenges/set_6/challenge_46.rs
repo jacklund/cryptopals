@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
     use crate::rsa::*;
-    use base64;
     use num::Zero;
     use num_bigint::*;
     use std::ops::Shr;
@@ -24,7 +23,7 @@ mod tests {
         // We're going to multiply the ciphertext by the encrypted value of 2, which is the same as
         // multiplying the plaintext by 2
         let two_encrypted =
-            BigUint::from_bytes_be(&encrypt_without_padding(&public, &vec![2u8]).unwrap());
+            BigUint::from_bytes_be(&encrypt_without_padding(&public, &[2u8]).unwrap());
 
         // For each bit, multiply by two and see if it's odd or even
         for _ in 0..public.modulus.bits() {

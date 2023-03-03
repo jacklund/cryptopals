@@ -13,17 +13,17 @@ mod tests {
         let original_plaintext =
             "comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon";
         let key = "SuperSecretKey";
-        let mac = md4_mac(&key.as_bytes(), &original_plaintext.as_bytes());
+        let mac = md4_mac(key.as_bytes(), original_plaintext.as_bytes());
 
         // Function to validate the mac
-        let validate_mac = |message: &[u8], digest| md4_mac(&key.as_bytes(), message) == digest;
+        let validate_mac = |message: &[u8], digest| md4_mac(key.as_bytes(), message) == digest;
 
         // Split the existing mac into 32-bit chunks
         let mut chunks = mac.chunks(4);
-        let a = slice_to_u32(&chunks.next().unwrap());
-        let b = slice_to_u32(&chunks.next().unwrap());
-        let c = slice_to_u32(&chunks.next().unwrap());
-        let d = slice_to_u32(&chunks.next().unwrap());
+        let a = slice_to_u32(chunks.next().unwrap());
+        let b = slice_to_u32(chunks.next().unwrap());
+        let c = slice_to_u32(chunks.next().unwrap());
+        let d = slice_to_u32(chunks.next().unwrap());
 
         // What we're adding to the message
         let new_message = ";admin=true";
@@ -56,6 +56,6 @@ mod tests {
             }
         }
 
-        assert!(false);
+        unreachable!()
     }
 }

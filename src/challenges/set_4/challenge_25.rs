@@ -5,8 +5,6 @@ mod tests {
     use crate::ecb::*;
     use crate::pkcs7::Deserialize;
     use crate::tests::ICE_ICE_BABY;
-    use base64;
-    use rand;
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 
@@ -19,7 +17,7 @@ mod tests {
             .collect::<Vec<u8>>();
         let key = "YELLOW SUBMARINE".as_bytes();
         let blocksize = 16;
-        let plaintext_bytes = ecb_decrypt(&key, &ciphertext, blocksize)
+        let plaintext_bytes = ecb_decrypt(key, &ciphertext, blocksize)
             .pkcs7_deserialize(blocksize)
             .unwrap();
         let plaintext = std::str::from_utf8(&plaintext_bytes).unwrap();
@@ -71,7 +69,7 @@ mod tests {
                 .find(|b| edit(&ciphertext, index, &[**b])[index] == ciphertext[index])
             {
                 Some(value) => solution.push(*value),
-                None => assert!(false),
+                None => panic!(),
             };
 
             solution

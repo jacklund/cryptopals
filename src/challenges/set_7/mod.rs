@@ -10,6 +10,7 @@ use aes::{
     Aes128,
 };
 
+#[allow(dead_code)]
 pub const BLOCKSIZE: usize = 16;
 
 // Padding trait, allows us to specify what kind of padding we use with our MD hash
@@ -59,6 +60,7 @@ impl Padding for MDPadding {
 // a full block with zeroes, and for each intermediate hash we truncate and zero-fill it so each
 // intermediate hash is shortened as well.
 
+#[allow(dead_code)]
 // Generate the hash
 pub fn md<P>(iv: &[u8], data: &[u8]) -> Vec<u8>
 where
@@ -67,6 +69,7 @@ where
     md_with_states::<P>(iv, data).0
 }
 
+#[allow(dead_code)]
 // Generate the hash and intermediate hash states
 pub fn md_with_states<P>(iv: &[u8], data: &[u8]) -> (Vec<u8>, Vec<Vec<u8>>)
 where
@@ -89,6 +92,7 @@ where
     (h, hashes)
 }
 
+#[allow(dead_code)]
 // Hash a single block
 pub fn md_block(iv: &[u8], block: &[u8]) -> Vec<u8> {
     // Pad out the IV

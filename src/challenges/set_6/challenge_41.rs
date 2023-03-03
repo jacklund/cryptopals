@@ -3,7 +3,6 @@ mod tests {
     use crate::rsa::*;
     use num_bigint::*;
     use num_modular::ModularUnaryOps;
-    use rand;
 
     #[test]
     fn challenge_41() {

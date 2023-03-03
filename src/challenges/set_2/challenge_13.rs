@@ -7,15 +7,15 @@ mod tests {
     use std::collections::HashMap;
 
     fn profile_for(email: &str) -> String {
-        let sanitized = email.replace("&", "").replace("=", "");
+        let sanitized = email.replace(['&', '='], "");
         format!("email={}&uid=10&role=user", sanitized)
     }
 
     fn to_hashmap(profile: &str) -> HashMap<String, String> {
         let kv_list = profile
-            .split("&")
+            .split('&')
             .take(3)
-            .map(|kv| kv.split("=").collect::<Vec<&str>>())
+            .map(|kv| kv.split('=').collect::<Vec<&str>>())
             .map(|v| (v[0].to_string(), v[1].to_string()));
         HashMap::from_iter(kv_list)
     }
@@ -40,15 +40,13 @@ mod tests {
         };
 
         let blocksize = find_blocksize(&|plaintext| {
-            encrypt_profile_for(std::str::from_utf8(&plaintext).unwrap())
+            encrypt_profile_for(std::str::from_utf8(plaintext).unwrap())
         })
         .unwrap();
         assert_eq!(16, blocksize);
 
         // Create a fake email which pushes the "admin" part past a block boundary
-        let mut fake_email = std::iter::repeat('A')
-            .take(blocksize - PREFIX)
-            .collect::<String>();
+        let mut fake_email = "A".repeat(blocksize - PREFIX);
         fake_email.push_str("admin");
         let encrypted = encrypt_profile_for(&fake_email);
 
@@ -57,7 +55,7 @@ mod tests {
 
         // Now create an email which pushes the "role=" just at a block boundary
         let padding = get_padding_size(PREFIX + SUFFIX, blocksize);
-        let fake_email = std::iter::repeat('A').take(padding).collect::<String>();
+        let fake_email = "A".repeat(padding);
         let mut encrypted = encrypt_profile_for(&fake_email);
 
         // Truncate the last block and add our admin block
