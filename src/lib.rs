@@ -6,7 +6,9 @@ pub mod dh;
 pub mod digest;
 pub mod dsa;
 pub mod ecb;
+pub mod herding;
 pub mod hmac;
+pub mod md;
 pub mod mt19937;
 pub mod pkcs7;
 #[allow(non_snake_case)]
