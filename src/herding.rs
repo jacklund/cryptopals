@@ -1,4 +1,5 @@
 use crate::md::*;
+use rayon::prelude::*;
 use std::collections::HashMap;
 
 pub struct DiamondStructure {
@@ -20,23 +21,29 @@ impl DiamondStructure {
 
         // Generate hashes of all those messages
         let mut hashes = initial_messages
-            .iter()
+            .par_iter()
             .map(|m| md::<NoPadding>(iv, m))
             .collect::<Vec<Vec<u8>>>();
 
         // Create our funnel
         while hashes.len() > 1 {
+            let values: Vec<_> = hashes
+                .par_iter()
+                .chunks(2)
+                .map(|hash_pair| {
+                    let (msg_a, msg_b, common_hash) = find_collision(&hash_pair[0], &hash_pair[1]);
+                    (hash_pair[0], hash_pair[1], msg_a, msg_b, common_hash)
+                })
+                .collect();
+
             let mut pairs = HashMap::new();
             let mut next_hashes = Vec::new();
 
             // Grab hashes two at a time
-            for hash_pair in hashes.chunks(2) {
-                // Find two messages which hash from this pair of hashes to a common hash value
-                let (msg_a, msg_b, common_hash) = find_collision(&hash_pair[0], &hash_pair[1]);
-
+            for (hash_a, hash_b, msg_a, msg_b, common_hash) in values {
                 // Insert a lookup from each hash to the next message and its hash value
-                pairs.insert(hash_pair[0].clone(), (msg_a, common_hash.clone()));
-                pairs.insert(hash_pair[1].clone(), (msg_b, common_hash.clone()));
+                pairs.insert(hash_a.clone(), (msg_a, common_hash.clone()));
+                pairs.insert(hash_b.clone(), (msg_b, common_hash.clone()));
 
                 // Keep the hashes for the next iteration
                 next_hashes.push(common_hash);
@@ -61,7 +68,9 @@ impl DiamondStructure {
                 .take(BLOCKSIZE)
                 .collect::<Vec<u8>>()
         })
-        .find_map(|message| {
+        .into_iter()
+        .par_bridge()
+        .find_map_any(|message| {
             let hash = md_block(&iv, &message);
             if self.diamond[0].contains_key(&hash) {
                 Some(message)
@@ -74,6 +83,7 @@ impl DiamondStructure {
 
     pub fn create_message(&self, prefix: &[u8], iv: &[u8]) -> Vec<u8> {
         let linking_message = self.find_linking_message(prefix, iv);
+
         let mut message = prefix.to_vec();
         message.extend(linking_message);
         let mut hash = md::<NoPadding>(iv, &message);
