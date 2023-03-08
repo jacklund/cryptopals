@@ -27,6 +27,8 @@ lazy_static! {
     };
 }
 
+/// Repeat the key string until it's the same length as the plaintext, and then xor it with the
+/// plaintext
 pub fn repeating_key_xor(key: &[u8], plaintext: &[u8]) -> Vec<u8> {
     key.iter()
         .cycle()
@@ -36,14 +38,14 @@ pub fn repeating_key_xor(key: &[u8], plaintext: &[u8]) -> Vec<u8> {
         .collect()
 }
 
+/// Since `p ^ k = c`, where `p` is the plaintext char, `k` is the key char, and `c` is the
+/// ciphertext char, we can use `k = c ^ p`. Here, we take the most frequent char in the
+/// ciphertext, and xor it with each of the most frequent chars in the English language,
+/// and try that as a key. The key that gives us the highest score wins.
 pub fn find_single_byte_key(ciphertext: &[u8]) -> (u8, usize, String) {
     let histogram = create_histogram(ciphertext);
     let ciphertext_val = histogram[0].0;
 
-    // Since p ^ k = c, where p is the plaintext char, k is the key char, and c is the
-    // ciphertext char, we can use k = c ^ p. Here, we take the most frequent char in the
-    // ciphertext, and xor it with each of the most frequent chars in the English language,
-    // and try that as a key. The key that gives us the highest score wins.
     CHAR_LIST_BY_FREQUENCY.iter().fold(
         (0u8, 0usize, String::new()),
         |(last_key, last_score, last_plaintext), b| {
@@ -61,6 +63,12 @@ pub fn find_single_byte_key(ciphertext: &[u8]) -> (u8, usize, String) {
     )
 }
 
+/// Three steps:
+/// - Try different keysizes, chunk the ciphertext according to the keysize, and find the one that
+/// has the smallest average Hamming distance between even and odd chunks. That's your keysize.
+/// - Chunk the ciphertext into keysize chunks, and then transpose the chunks so you have
+/// "ciphertexts" of the first byte of each chunk, then the next, and so on.
+/// - Use the single-key method from challenge 3 to determine each byte of the key
 #[allow(clippy::type_complexity)]
 pub fn break_repeating_key_xor(ciphertext: &[u8]) -> (Vec<u8>, Vec<u8>) {
     // Iterate through various keysizes, chunking the ciphertext into keysize chunks,

@@ -50,8 +50,8 @@ pub fn ecb_encrypt(key: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
     ecb_encrypt_without_padding(key, &plaintext.pkcs7_serialize(blocksize), blocksize)
 }
 
-// Detect AES in ECB mode by encrypting a long string and looking for identical blocks of
-// ciphertext
+/// Detect AES in ECB mode by encrypting a long string and looking for identical blocks of
+/// ciphertext
 pub fn detect_ecb(ciphertext: &[u8], blocksize: usize) -> bool {
     let mut chunks = ciphertext.chunks(blocksize).collect::<Vec<&[u8]>>();
     while let Some(chunk) = chunks.pop() {

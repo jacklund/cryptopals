@@ -1,5 +1,5 @@
 pub mod cbc;
-mod challenges;
+pub mod challenges;
 pub mod cracking;
 pub mod ctr;
 pub mod dh;

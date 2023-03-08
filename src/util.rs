@@ -223,6 +223,7 @@ pub fn keystream_from_byte(key: u8, size: usize) -> Vec<u8> {
     [key].iter().cycle().take(size).copied().collect()
 }
 
+/// xor two fixed, equal-length strings together
 pub fn xor(a: &[u8], b: &[u8]) -> Result<Vec<u8>> {
     if a.len() != b.len() {
         Err(anyhow!(

@@ -1,7 +1,8 @@
-mod set_1;
-mod set_2;
-mod set_3;
-mod set_4;
-mod set_5;
-mod set_6;
-mod set_7;
+/// ## Basics
+pub mod set_1;
+pub mod set_2;
+pub mod set_3;
+pub mod set_4;
+pub mod set_5;
+pub mod set_6;
+pub mod set_7;
