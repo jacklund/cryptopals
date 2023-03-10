@@ -135,8 +135,8 @@ pub fn break_repeating_key_xor(ciphertext: &[u8]) -> (Vec<u8>, Vec<u8>) {
 }
 
 #[allow(clippy::clone_double_ref)]
-// Break CTR where the same nonce is used
-// This basically becomes the Vignere case, where we break the keystream byte by byte
+/// Break CTR where the same nonce is used
+/// This basically becomes the Vignere case, where we break the keystream byte by byte
 pub fn break_ctr(ciphertexts: &[Vec<u8>]) -> Vec<u8> {
     let mut transposed = vec![];
     for ciphertext in ciphertexts {
@@ -156,8 +156,8 @@ pub fn break_ctr(ciphertexts: &[Vec<u8>]) -> Vec<u8> {
     keystream
 }
 
-// Find the blocksize by encrypting longer strings until the ciphertext length changes.
-// The blocksize will be the difference in lengths
+/// Find the blocksize by encrypting longer strings until the ciphertext length changes.
+/// The blocksize will be the difference in lengths
 pub fn find_blocksize<F: Fn(&[u8]) -> Vec<u8>>(encrypt_fn: &F) -> Option<usize> {
     let mut plaintext = vec![];
     let initial = encrypt_fn(&plaintext).len();
@@ -172,10 +172,10 @@ pub fn find_blocksize<F: Fn(&[u8]) -> Vec<u8>>(encrypt_fn: &F) -> Option<usize> 
     None
 }
 
-// Here we get the prefix size of an encryption function by starting with two blocks of plaintext
-// filled with the same character, and then add chars until we get two ciphertext blocks that are
-// identical - this means that the prefix is the number of blocks before the identical ciphertext
-// blocks, minus the added characters
+/// Get the prefix size of an encryption function by starting with two blocks of plaintext
+/// filled with the same character, and then add chars until we get two ciphertext blocks that are
+/// identical - this means that the prefix is the number of blocks before the identical ciphertext
+/// blocks, minus the added characters
 pub fn get_prefix_size<F: Fn(&[u8]) -> Vec<u8>>(encrypt_fn: &F, blocksize: usize) -> Option<usize> {
     let mut plaintext = std::iter::repeat(b'A')
         .take(blocksize * 2)
@@ -194,8 +194,8 @@ pub fn get_prefix_size<F: Fn(&[u8]) -> Vec<u8>>(encrypt_fn: &F, blocksize: usize
     None
 }
 
-// Pad out the prefix to a full block, then add chars to the plaintext until we go over a block
-// boundary, and count from there
+/// Pad out the prefix to a full block, then add chars to the plaintext until we go over a block
+/// boundary, and count from there
 pub fn get_suffix_size<F: Fn(&[u8]) -> Vec<u8>>(
     encrypt_fn: &F,
     prefix_size: usize,
@@ -224,7 +224,13 @@ pub fn get_suffix_size<F: Fn(&[u8]) -> Vec<u8>>(
     None
 }
 
-fn decrypt_block_byte_at_a_time<F: Fn(&[u8], &[u8]) -> bool>(
+/// Decrypt a block one byte at a time by going backwards through each byte in the block, and
+/// altering the byte from the previous block (or, in the case of the first block, the IV) until
+/// the current block validates as valid PKCS7 padding. Since we know what its decypted value is
+/// (the padding byte), and the ciphertext from the previous block, we can decrypt it by taking the
+/// value we altered it to, the padding value, and the original value from the previous block, and
+/// xoring them all together.
+pub fn decrypt_block_byte_at_a_time<F: Fn(&[u8], &[u8]) -> bool>(
     block_num: usize,
     iv: &[u8],
     ciphertext: &[u8],
@@ -248,7 +254,7 @@ fn decrypt_block_byte_at_a_time<F: Fn(&[u8], &[u8]) -> bool>(
             _ => (block_num - 1) * blocksize + byte_index,
         };
 
-        // Hold onto the original value
+        // Hold onto the original value of the byte from the previous block
         let original_value = block[index];
 
         // Figure out the proper padding value
@@ -298,6 +304,8 @@ fn decrypt_block_byte_at_a_time<F: Fn(&[u8], &[u8]) -> bool>(
     solution
 }
 
+/// Decrypt one byte at a time by going backwards through each block and calling
+/// [decrypt_block_byte_at_a_time]
 #[allow(clippy::clone_double_ref)]
 pub fn decrypt_byte_at_a_time<F: Fn(&[u8], &[u8]) -> bool>(
     iv: &[u8],

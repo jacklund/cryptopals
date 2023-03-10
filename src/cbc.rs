@@ -2,10 +2,10 @@ use crate::ecb::{ecb_decrypt, ecb_encrypt_without_padding};
 use crate::pkcs7::{Deserialize, Serialize};
 use crate::util::xor;
 
-// CBC mode using ECB
-// c = e(cp ^ p)
-// where c is the ciphertext, cp is the previous ciphertext (or iv), p is the plaintext and e is
-// the encryption function
+/// CBC mode using ECB
+/// c = e(cp ^ p)
+/// where c is the ciphertext, cp is the previous ciphertext (or iv), p is the plaintext and e is
+/// the encryption function
 pub fn cbc_encrypt(key: &[u8], iv: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
     let (_, output) = plaintext.pkcs7_serialize(blocksize).chunks(blocksize).fold(
         (iv.to_vec(), Vec::new()),
@@ -21,10 +21,8 @@ pub fn cbc_encrypt(key: &[u8], iv: &[u8], plaintext: &[u8], blocksize: usize) ->
     output
 }
 
-// CBC mode using ECB
-// p = cp ^ d(c)
-// where c is the ciphertext, cp is the previous ciphertext (or iv), p is the plaintext and d is
-// the decryption function
+/// CBC mode using ECB
+/// Same as [cbc_decrypt], except we don't deserialize the PKCS7 padding after
 pub fn cbc_decrypt_without_deserialize(
     key: &[u8],
     iv: &[u8],
@@ -43,23 +41,23 @@ pub fn cbc_decrypt_without_deserialize(
     output
 }
 
-// CBC mode using ECB
-// p = cp ^ d(c)
-// where c is the ciphertext, cp is the previous ciphertext (or iv), p is the plaintext and d is
-// the decryption function
+/// CBC mode using ECB
+/// p = cp ^ d(c)
+/// where c is the ciphertext, cp is the previous ciphertext (or iv), p is the plaintext and d is
+/// the decryption function
 pub fn cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8], blocksize: usize) -> Vec<u8> {
     cbc_decrypt_without_deserialize(key, iv, ciphertext, blocksize)
         .pkcs7_deserialize(blocksize)
         .unwrap()
 }
 
-// CBC MAC
+/// CBC MAC
 pub fn cbc_mac(key: &[u8], iv: &[u8], plaintext: &[u8], blocksize: usize) -> Vec<u8> {
     let ciphertext = cbc_encrypt(key, iv, plaintext, blocksize);
     ciphertext[ciphertext.len() - blocksize..].to_vec()
 }
 
-// CBC MAC Verify
+/// CBC MAC Verify
 pub fn cbc_mac_verify(
     key: &[u8],
     iv: &[u8],

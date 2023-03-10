@@ -1,10 +1,11 @@
 use anyhow::{anyhow, Result};
 
-// Traits to serialize/deserialize PKCS7
+/// Serialize data with PKCS #7 padding
 pub trait Serialize {
     fn pkcs7_serialize(&self, blocksize: usize) -> Vec<u8>;
 }
 
+/// Deserialize data from PKCS #7 padding
 pub trait Deserialize {
     fn pkcs7_deserialize(&self, blocksize: usize) -> Result<Vec<u8>>;
 }
@@ -16,6 +17,7 @@ fn get_padding_size(datasize: usize, blocksize: usize) -> usize {
     }
 }
 
+/// Check whether the data is properly PKCS7 padded
 pub fn check_padding(data: &[u8], blocksize: usize) -> Result<usize> {
     if data.len() % blocksize != 0 {
         return Err(anyhow!("Bad padding"));
@@ -34,8 +36,6 @@ pub fn check_padding(data: &[u8], blocksize: usize) -> Result<usize> {
         Err(anyhow!("Bad padding"))
     }
 }
-
-// Various implementations for byte streams
 
 impl Serialize for &[u8] {
     fn pkcs7_serialize(&self, blocksize: usize) -> Vec<u8> {
