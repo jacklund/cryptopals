@@ -4,21 +4,23 @@ use asn1::{oid, ObjectIdentifier};
 const MD4_OID: ObjectIdentifier = oid!(1, 2, 840, 113549, 2, 3);
 
 // Default initialization constants
-const A: u32 = u32::from_be(0x01234567);
-const B: u32 = u32::from_be(0x89abcdef);
-const C: u32 = u32::from_be(0xfedcba98);
-const D: u32 = u32::from_be(0x76543210);
+pub const A: u32 = u32::from_be(0x01234567);
+pub const B: u32 = u32::from_be(0x89abcdef);
+pub const C: u32 = u32::from_be(0xfedcba98);
+pub const D: u32 = u32::from_be(0x76543210);
+pub const G: u32 = u32::from_le(0x5a827999);
+pub const H: u32 = u32::from_le(0x6ed9eba1);
 
 // Auxillary functions used to generate the hashes
-fn f(x: &u32, y: &u32, z: &u32) -> u32 {
+pub fn f(x: &u32, y: &u32, z: &u32) -> u32 {
     (x & y) | (!x & z)
 }
 
-fn g(x: &u32, y: &u32, z: &u32) -> u32 {
+pub fn g(x: &u32, y: &u32, z: &u32) -> u32 {
     (x & y) | (x & z) | (y & z)
 }
 
-fn h(x: &u32, y: &u32, z: &u32) -> u32 {
+pub fn h(x: &u32, y: &u32, z: &u32) -> u32 {
     x ^ y ^ z
 }
 
@@ -53,70 +55,6 @@ pub fn md4_mac(key: &[u8], message: &[u8]) -> Vec<u8> {
     MD4::new().mac(key, message)
 }
 
-/// MD trait, generates the basic round operations for an MD hash
-pub trait MD {
-    fn operation_1(&mut self, index: usize, value: u32, shift: u32);
-    fn operation_2(&mut self, index: usize, value: u32, shift: u32);
-    fn operation_3(&mut self, index: usize, value: u32, shift: u32);
-
-    fn round_1(&mut self, block: &[u32]) {
-        self.operation_1(0, block[0], 3);
-        self.operation_1(3, block[1], 7);
-        self.operation_1(2, block[2], 11);
-        self.operation_1(1, block[3], 19);
-        self.operation_1(0, block[4], 3);
-        self.operation_1(3, block[5], 7);
-        self.operation_1(2, block[6], 11);
-        self.operation_1(1, block[7], 19);
-        self.operation_1(0, block[8], 3);
-        self.operation_1(3, block[9], 7);
-        self.operation_1(2, block[10], 11);
-        self.operation_1(1, block[11], 19);
-        self.operation_1(0, block[12], 3);
-        self.operation_1(3, block[13], 7);
-        self.operation_1(2, block[14], 11);
-        self.operation_1(1, block[15], 19);
-    }
-
-    fn round_2(&mut self, block: &[u32]) {
-        self.operation_2(0, block[0], 3);
-        self.operation_2(3, block[4], 5);
-        self.operation_2(2, block[8], 9);
-        self.operation_2(1, block[12], 13);
-        self.operation_2(0, block[1], 3);
-        self.operation_2(3, block[5], 5);
-        self.operation_2(2, block[9], 9);
-        self.operation_2(1, block[13], 13);
-        self.operation_2(0, block[2], 3);
-        self.operation_2(3, block[6], 5);
-        self.operation_2(2, block[10], 9);
-        self.operation_2(1, block[14], 13);
-        self.operation_2(0, block[3], 3);
-        self.operation_2(3, block[7], 5);
-        self.operation_2(2, block[11], 9);
-        self.operation_2(1, block[15], 13);
-    }
-
-    fn round_3(&mut self, block: &[u32]) {
-        self.operation_3(0, block[0], 3);
-        self.operation_3(3, block[8], 9);
-        self.operation_3(2, block[4], 11);
-        self.operation_3(1, block[12], 15);
-        self.operation_3(0, block[2], 3);
-        self.operation_3(3, block[10], 9);
-        self.operation_3(2, block[6], 11);
-        self.operation_3(1, block[14], 15);
-        self.operation_3(0, block[1], 3);
-        self.operation_3(3, block[9], 9);
-        self.operation_3(2, block[5], 11);
-        self.operation_3(1, block[13], 15);
-        self.operation_3(0, block[3], 3);
-        self.operation_3(3, block[11], 9);
-        self.operation_3(2, block[7], 11);
-        self.operation_3(1, block[15], 15);
-    }
-}
-
 /// MD4 hash
 pub struct MD4 {
     state: [u32; 4],
@@ -136,49 +74,76 @@ impl MD4 {
         value.extend(message);
         self.update(&value).digest()
     }
-}
 
-/// MD implementation for MD4
-impl MD for MD4 {
-    fn operation_1(&mut self, index: usize, value: u32, shift: u32) {
-        // Syntactic sugar
-        let a = &self.state[index];
-        let b = &self.state[(index + 1) % self.state.len()];
-        let c = &self.state[(index + 2) % self.state.len()];
-        let d = &self.state[(index + 3) % self.state.len()];
-
-        self.state[index] = a
-            .wrapping_add(f(b, c, d))
-            .wrapping_add(value)
-            .rotate_left(shift);
+    pub fn round_1(&mut self, block: &[u32]) {
+        let shifts = [3, 7, 11, 19];
+        let state_indices = [0, 3, 2, 1];
+        for block_index in 0..=15 {
+            let state_index = state_indices[block_index % 4];
+            let shift = shifts[block_index % 4];
+            self.state[state_index] = self.apply_f(state_index, block[block_index], shift);
+        }
     }
 
-    fn operation_2(&mut self, index: usize, value: u32, shift: u32) {
-        // Syntactic sugar
-        let a = &self.state[index];
-        let b = &self.state[(index + 1) % self.state.len()];
-        let c = &self.state[(index + 2) % self.state.len()];
-        let d = &self.state[(index + 3) % self.state.len()];
-
-        self.state[index] = a
-            .wrapping_add(g(b, c, d))
-            .wrapping_add(value)
-            .wrapping_add(0x5a827999u32)
-            .rotate_left(shift);
+    pub fn round_2(&mut self, block: &[u32]) {
+        let shifts = [3, 5, 9, 13];
+        let state_indices = [0, 3, 2, 1];
+        for index in 0..=15 {
+            let block_index = if index < 15 { (index * 4) % 15 } else { 15 };
+            let state_index = state_indices[index % 4];
+            let shift = shifts[index % 4];
+            self.state[state_index] = self.apply_g(state_index, block[block_index], shift);
+        }
     }
 
-    fn operation_3(&mut self, index: usize, value: u32, shift: u32) {
+    pub fn round_3(&mut self, block: &[u32]) {
+        let block_indices = [0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15];
+        let shifts = [3, 9, 11, 15];
+        let state_indices = [0, 3, 2, 1];
+        for index in 0..=15 {
+            let block_index = block_indices[index];
+            let state_index = state_indices[index % 4];
+            let shift = shifts[index % 4];
+            self.state[state_index] = self.apply_h(state_index, block[block_index], shift);
+        }
+    }
+
+    fn apply_f(&mut self, index: usize, value: u32, shift: u32) -> u32 {
         // Syntactic sugar
         let a = &self.state[index];
         let b = &self.state[(index + 1) % self.state.len()];
         let c = &self.state[(index + 2) % self.state.len()];
         let d = &self.state[(index + 3) % self.state.len()];
 
-        self.state[index] = a
-            .wrapping_add(h(b, c, d))
+        a.wrapping_add(f(b, c, d))
             .wrapping_add(value)
-            .wrapping_add(0x6ed9eba1u32)
-            .rotate_left(shift);
+            .rotate_left(shift)
+    }
+
+    fn apply_g(&mut self, index: usize, value: u32, shift: u32) -> u32 {
+        // Syntactic sugar
+        let a = &self.state[index];
+        let b = &self.state[(index + 1) % self.state.len()];
+        let c = &self.state[(index + 2) % self.state.len()];
+        let d = &self.state[(index + 3) % self.state.len()];
+
+        a.wrapping_add(g(b, c, d))
+            .wrapping_add(value)
+            .wrapping_add(G)
+            .rotate_left(shift)
+    }
+
+    fn apply_h(&mut self, index: usize, value: u32, shift: u32) -> u32 {
+        // Syntactic sugar
+        let a = &self.state[index];
+        let b = &self.state[(index + 1) % self.state.len()];
+        let c = &self.state[(index + 2) % self.state.len()];
+        let d = &self.state[(index + 3) % self.state.len()];
+
+        a.wrapping_add(h(b, c, d))
+            .wrapping_add(value)
+            .wrapping_add(H)
+            .rotate_left(shift)
     }
 }
 
