@@ -4,6 +4,7 @@ pub mod challenge_51;
 pub mod challenge_52;
 pub mod challenge_53;
 pub mod challenge_54;
+pub mod challenge_55;
 
 use crate::util::xor;
 use aes::{

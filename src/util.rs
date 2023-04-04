@@ -345,6 +345,26 @@ pub fn get_bytes(value: &BigInt) -> Vec<u8> {
     value.to_bytes_le().1
 }
 
+pub fn set_bit_equal(a: u32, b: u32, bit_number: usize) -> u32 {
+    a ^ ((a ^ b) & 2u32.pow(bit_number as u32))
+}
+
+pub fn set_bit(a: u32, bit_number: usize) -> u32 {
+    a | 2u32.pow(bit_number as u32)
+}
+
+pub fn clear_bit(a: u32, bit_number: usize) -> u32 {
+    a & !2u32.pow(bit_number as u32)
+}
+
+pub fn is_bit_equal(a: u32, b: u32, bit_number: usize) -> bool {
+    ((a ^ b) & 2u32.pow(bit_number as u32)) == 0u32
+}
+
+pub fn is_bit_set(a: u32, bit_number: usize) -> bool {
+    (a & 2u32.pow(bit_number as u32)) != 0u32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -371,5 +391,41 @@ mod tests {
             37,
             hamming_distance("this is a test".as_bytes(), "wokka wokka!!!".as_bytes()),
         );
+    }
+
+    #[test]
+    fn test_bit_equal() {
+        let a: u32 = 0xffffff00;
+        let b: u32 = 0x00000040;
+
+        let c = set_bit_equal(a, b, 6);
+        assert_eq!(0xffffff40, c);
+    }
+
+    #[test]
+    fn test_set_bit() {
+        let a: u32 = 0xffffff00;
+
+        let b = set_bit(a, 6);
+        assert_eq!(0xffffff40, b);
+    }
+
+    #[test]
+    fn test_clear_bit() {
+        let a: u32 = 0xffffffff;
+
+        let b = clear_bit(a, 6);
+        assert_eq!(0xffffffbf, b);
+    }
+
+    #[test]
+    fn test_is_bit_equal() {
+        let a: u32 = 0xffffff80;
+        let b: u32 = 0x00000080;
+
+        assert!(is_bit_equal(a, b, 7));
+        let c: u32 = 0xffffff0f;
+
+        assert!(!is_bit_equal(a, c, 7));
     }
 }
